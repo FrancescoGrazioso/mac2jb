@@ -1,163 +1,172 @@
 # mac2jb
 
-An experimental, minimal **USB HID keyboard text sender** for entering the upstream [`ns2jb/bootstrap.bas`](https://gitlab.com/pepsipu/ns2jb/-/blob/main/bootstrap.bas) file into the **SmileBASIC editor on a Nintendo Switch 2** using a USB cable and an Apple Silicon Mac.
+**USB keyboard-based bootstrap entry for Switch 2, with a bundled ns2jb host.**
 
-It sends key reports, **not a `.bas` file over USB storage**, and does **not** automatically execute the typed program or complete the `ns2jb` demo. Its main purpose is to avoid manually transcribing the long BASIC source.
+A macOS USB HID keyboard sender for entering `bootstrap.bas` into **SmileBASIC on Nintendo Switch 2**, plus a wrapper for the local-network `ns2jb` host. The project aims for **committed, frozen upstream source**: no Git submodules, no `git pull` during a user build, no downloading `bootstrap.bas` at runtime.
 
-> [!WARNING]
-> **Unverified on Switch 2 and modern macOS.** `libusbd` depends on an experimental macOS USB gadget kernel extension developed for macOS 12. Simply plugging two USB-C devices together does not guarantee that the Mac's controller can act as a keyboard, or that Switch 2/SmileBASIC accepts the emulated keyboard. Use a spare Mac if you plan to experiment with reduced macOS security. Do not disable SIP merely to test this project's compilation.
+> **Release status:** Frozen source bundle. The supplied ZIP includes the three vendor source trees, the bootstrap asset, and local integration scripts. This has **not** been built or tested on a compatible Mac/Switch 2, and the experimental USB device-mode driver may not work on modern macOS. External Apple development tools and Node.js are still required.
 
-## Requirements
+## Files
 
-- Apple Silicon Mac (the cited `libusbd` macOS build targets `arm64`); **support on your specific hardware/macOS version must be confirmed**.
-- Xcode command-line tools, full Xcode for compiling the optional old USB gadget kernel extension, Git, Make and Clang.
-- [`shinyquagsire23/libusbd`](https://github.com/shinyquagsire23/libusbd), automatically cloned when `setup.sh` is run.
-- A **successfully built and loaded** [`shinyquagsire23/macos_usb_gadget_poc`](https://github.com/shinyquagsire23/macos_usb_gadget_poc) `usbgadget.kext` driver; this is a separate, experimental prerequisite, *not bundled*.
-- A data-capable USB cable and a target device that recognizes this USB HID keyboard implementation.
-- Nintendo Switch 2 running the upstream demo's specified **SmileBASIC 4.4.9 / system software 23.0.1**, if you intend to use the upstream demo. Verify versions with the upstream guide before proceeding.
+```text
+sender.c                      USB keyboard HID source
+Makefile                      offline build against local vendor/libusbd
+scripts/check.sh              local preflight (never downloads anything)
+scripts/send.sh               types bundled assets/bootstrap.bas
+scripts/host.sh               runs the bundled ns2jb host
+scripts/freeze-upstream.sh    MAINTAINER ONLY: one-time Git snapshots
+vendor/                       upstream snapshots when filled and committed
+assets/                       frozen bootstrap when filled and committed
+UPSTREAM.lock                 upstream commit hashes when snapshots exist
+```
 
-## 1. Check the Mac
+## Get started (no upstream downloads)
 
-Open Terminal:
+Extract this archive and upload its contents to [github.com/cpypwn/mac2jb](https://github.com/cpypwn/mac2jb) (create that repository first if it does not exist). **Upload the contents of the `mac2jb` folder, not the enclosing folder.** All three vendored source trees and `assets/bootstrap.bas` are already included; you do not have to run a dependency snapshot command.
 
-```sh
+To make another release ZIP on macOS, double-click `MAKE-RELEASE-ZIP.command`. This script packages local files only; it never downloads or updates dependencies.
+
+**Copyright note:** Review permission to redistribute the third-party code before making the repository public. Upstream licenses are not automatically granted by this project's MIT license.
+
+## Advanced maintainers: update vendored dependencies intentionally
+
+1. Review the upstream licenses and redistribution permissions **before publishing**. `libusbd` uses MIT, but do **not** assume `ns2jb` or `macos_usb_gadget_poc` may be redistributed without consent. Their copyright notices must be preserved.
+2. On a machine with Git and internet, run:
+
+   ```bash
+   chmod +x scripts/*.sh
+   ./scripts/freeze-upstream.sh --I-am-the-maintainer
+   ```
+
+3. Inspect `UPSTREAM.lock`, the bundled `bootstrap.bas`, and the entire vendor tree. The tool makes regular **source snapshots**, removes nested `.git`, and copies `bootstrap.bas` to `assets/`. It does **not** automatically update them on later builds. No submodules or runtime package-manager downloads are used.
+4. If redistribution is allowed, commit all applicable source and metadata:
+
+   ```bash
+   git add Makefile README.md LICENSE sender.c .gitignore scripts vendor assets UPSTREAM.lock
+   git commit -m "Freeze USB gadget, libusbd and ns2jb dependencies"
+   git push
+   ```
+
+5. Changes upstream will **not** change this project. Update snapshots only after intentional review and testing. `freeze-upstream.sh` refuses to overwrite existing directories. For a fresh snapshot, first archive/remove your previous vendor copies and compare upstream changes before replacing them.
+
+## User: prerequisites (no upstream repository downloads)
+
+- **Apple Silicon (arm64) MacBook**. Device-mode proof of concept targets macOS 12, and its USB controller example is hardcoded for a right-side port on a 2021 MacBook Pro. Other machines/versions may not work.
+- Mac with macOS developer tools (Xcode command-line tools), full Xcode for the historical kernel extension, and **Node.js 22+** for the network host. These operating-system tools/runtimes are **not** embedded or bundled; users may need to install them separately.
+- Switch 2 with **system software 23.0.1**, **SmileBASIC 4.4.9**, and over **20 MiB free** in SmileBASIC save space per original ns2jb documentation. A compatible USB data cable and local network shared with the Mac.
+- **Working `usbgadget.kext`** installed and approved by the owner. The historical kext requires reduced macOS security (including SIP changes in the original proof of concept), which is risky. Bundling a kext does **not** bypass macOS security approvals, code signing, hardware constraints, or compatibility. Do not modify security settings on an important production laptop just for this demo.
+
+## Step 1: Check Mac and frozen files
+
+Clone **the [cpypwn/mac2jb](https://github.com/cpypwn/mac2jb) repository**, not any upstream repository, or download its ZIP. In Terminal from the project folder:
+
+```bash
 uname -m
 sw_vers -productVersion
 csrutil status
-xcode-select --install
+./scripts/check.sh
 ```
 
-`uname -m` should be `arm64`. The Xcode install command may report that tools are already installed. No current macOS compatibility guarantee is claimed here.
+`check.sh` checks that snapshots are present and the frozen bootstrap hash matches. It does not access the internet. If it reports missing `vendor/` or `assets/`, the repository owner did not complete the offline snapshot step.
 
-## 2. Get this project
+## Step 2: Build from the included source
 
-On the project GitHub page, select **Code → Download ZIP**, extract the ZIP, and open Terminal in that folder. Or clone your own fork:
-
-```sh
-git clone https://github.com/cpypwn/mac2jb.git
-cd switch2-usb-typer
+```bash
+make
 ```
 
-For a downloaded ZIP, `cd` into the extracted folder instead.
+Builds `vendor/libusbd/libusbd.dylib` and `mac2jb-send` using locally installed Apple compiler tools. No `git clone`, `curl`, `brew` or network access is performed. Compilation succeeding does not mean your Mac supports USB gadget mode.
 
-## 3. Build the sender and `libusbd`
+## Step 3: Install/enable the historical USB device driver
 
-```sh
-chmod +x setup.sh fetch-bootstrap.sh
-./setup.sh
+Read `vendor/macos_usb_gadget_poc/README.md` and inspect the included `usbgadget/usbgadget.xcodeproj`. On a compatible historical macOS setup, open the Xcode project and build the extension:
+
+```bash
+open vendor/macos_usb_gadget_poc/usbgadget/usbgadget.xcodeproj
 ```
 
-This clones libusbd under `vendor/libusbd`, builds `libusbd.dylib`, and compiles `usb-text-sender`. To rebuild later, use `make clean && make`.
+Follow Apple's [kernel-extension approval guidance](https://support.apple.com/guide/security/kernel-extensions-sec8e454101b/web), and the bundled developer documentation. Do **not** automate SIP disabling or load unsigned kernel code blindly. The driver was built as an experimental 2021 MacBook Pro / macOS 12 proof of concept, not a modern production driver. Verify an approved, loaded driver with:
 
-**Build success is not proof that USB device mode works.** It requires the separate driver below.
-
-## 4. Set up the experimental USB gadget driver
-
-See the **original instructions and risks** in [macos_usb_gadget_poc](https://github.com/shinyquagsire23/macos_usb_gadget_poc). You can download its source with:
-
-```sh
-cd ..
-git clone https://github.com/shinyquagsire23/macos_usb_gadget_poc.git
-cd macos_usb_gadget_poc
-open usbgadget/usbgadget.xcodeproj
-```
-
-Build the `usbgadget` Xcode scheme in Xcode. The original driver was written for macOS 12 and may fail to build or load on newer macOS releases. Kernel-extension installation may require Reduced Security, approval and changes to System Integrity Protection (SIP) using macOS Recovery. These changes materially weaken system security; consult [Apple's security documentation](https://support.apple.com/guide/security/kernel-extensions-sec8e454101b/web) and the driver's own README first. Do **not** blindly install unknown `.kext` binaries, and do not assume disabling SIP will make an incompatible driver work.
-
-Once the extension has been loaded using the instructions appropriate to the specific macOS version, verify:
-
-```sh
+```bash
 kmutil showloaded | grep -i usbgadget
 ```
 
-If the kernel extension is not listed or USB keyboard enumeration fails, **stop here**: the sender cannot deliver USB keystrokes without a working device-mode driver. A USB HID-capable microcontroller is a more reliable alternative.
+If unsupported or unloaded, stop: standard Mac USB host mode cannot send HID keyboard reports to the Switch 2. Consider a dedicated USB-HID microcontroller instead.
 
-## 5. Download the original bootstrap
+## Step 4: Check the text without USB activity
 
-Return to the project folder and run:
-
-```sh
-./fetch-bootstrap.sh
+```bash
+./scripts/send.sh --dry-run
 ```
 
-The script downloads the current upstream `bootstrap.bas` and prints its SHA-256 hash. The file is excluded from Git, because it belongs to the original authors and can change. Inspect it before using it:
+Requires the sender to be compiled. Validates the **frozen** `assets/bootstrap.bas` for a US-ASCII keyboard and reports its length. The sender does **not** execute BASIC or automatically type RUN.
 
-```sh
-head -20 bootstrap.bas
-shasum -a 256 bootstrap.bas
-```
+## Step 5: Type the source into SmileBASIC
 
-This project **does not execute** the contents of `bootstrap.bas` on your Mac.
+1. On the Switch 2, open SmileBASIC → **Make a Program** → program **slot 0**, using a clean empty editor. Set the editor's keyboard layout to match **US English** if applicable.
+2. Connect the appropriate data-capable USB cable to the Mac's supported device-mode port and the Switch 2's supported USB keyboard input path. This hardware combination is **unverified**.
+3. On the Mac run:
 
-## 6. Validate the text first (no USB activity)
-
-```sh
-./usb-text-sender bootstrap.bas --dry-run
-```
-
-The sender checks each byte against a **US-English USB HID keyboard layout**. It supports standard 7-bit ASCII letters, digits, SmileBASIC punctuation, spaces, tabs, and newlines. It rejects unsupported bytes rather than silently changing them. CRLF files are accepted. If this fails, inspect the source encoding and keyboard layout before proceeding.
-
-## 7. Send text to the Switch 2
-
-1. On the Switch 2, start SmileBASIC, enter **Make a Program**, choose **program slot 0**, and open a **new, empty source editor**. Do **not** enter Direct mode for the bulk program text.
-2. Connect the Mac and Switch 2 with a **USB data cable**, using the Switch 2 port/accessories suitable for USB keyboard input. This has **not been hardware-validated** for this Mac HID implementation.
-3. In the project directory on the Mac, run:
-
-   ```sh
-   DYLD_LIBRARY_PATH="$PWD/vendor/libusbd" ./usb-text-sender bootstrap.bas --delay-ms 80
+   ```bash
+   ./scripts/send.sh --delay-ms 100
    ```
 
-4. At the `SEND` confirmation, ensure the Switch 2 editor is the intended destination, then type `SEND` and press Enter in Terminal. The program waits for USB HID enumeration and sends each key as a **press + release**, with an 80 ms inter-character delay.
-5. **Watch the Switch 2 screen.** If it types into the wrong place or fails, press **Control+C** on the Mac. The target may contain partial text; clear the editor before retrying.
-6. When the transfer finishes, carefully **verify all lines and punctuation**, then save the program as `NS2` in SmileBASIC. Do not assume successful USB writes prove that SmileBASIC received every character. If the console misses characters, retry with `--delay-ms 150` or a larger value (maximum 2000).
+4. Focus the Switch 2 editor, then type `SEND` into the **Mac Terminal** when prompted. It waits for keyboard enumeration and sends key press/release reports. Use **Control+C** to interrupt if input is going to the wrong place.
+5. Inspect the text for missed characters; HID success cannot prove editor accuracy. Retry with `--delay-ms 200` after clearing the editor if necessary. Save the editor program as `NS2` in slot 0.
 
-The sender intentionally does **not** press a RUN key or issue the upstream `REMOVE`/`START` commands. These are separate operations with additional risks and prerequisites.
+## Step 6: Complete the upstream ns2jb FS demo
 
-## 8. If you intend to use the upstream `ns2jb` demo
+**This phase uses local networking, not the USB keyboard link.** Follow the pinned `vendor/ns2jb/README.md` for the exact version in your GitHub release. The upstream steps inspected on **2026-10-22** were:
 
-Follow [the original `ns2jb` README](https://gitlab.com/pepsipu/ns2jb/-/blob/main/README.md), not a substituted set of steps from this project. Its documentation also requires **Node.js 22+**, the upstream `run.cjs` computer-side host package, compatible Switch 2 firmware and SmileBASIC versions, **over 20 MiB free** in the SmileBASIC save, and a shared reachable network. Its host server uses port **39380**. USB text entry is only the **one-time transcription step**, not the actual demo execution. The upstream demo manipulates privileged processes and is risky; review the code yourself.
+1. Connect the Switch 2 and the Mac to the same reachable local network. The demo host uses TCP port **39380**. Keep the Mac awake.
+2. Restart the **Switch 2**, open SmileBASIC and enter **Direct mode**.
+3. On the Mac, from the project root, run:
+
+   ```bash
+   ./scripts/host.sh
+   ```
+
+   If multiple network interfaces exist, select the Mac IPv4 address reachable from the Switch 2. Or specify one directly: `./scripts/host.sh 192.168.1.10` (use your **actual** Mac address).
+4. In SmileBASIC **Direct mode**, enter these commands **one at a time**:
+
+   ```basic
+   LOAD "TXT:NS2"
+   RUN
+   REMOVE NSR,&H60000000,&H3FFFFFFF
+   ```
+
+   Confirm the load. The upstream documentation says the `Out of memory` error following `REMOVE` is expected. **Do not repeat REMOVE in the same SmileBASIC application process.**
+5. The host prints a unique `V=START(...)` line containing your host IP and pairing data. **Type exactly the line printed on your own Mac**, not an example from another computer.
+6. Leave SmileBASIC open and your Mac awake until the host reports **`FS execution verified`** and restoration/cleanup. The host places results under `vendor/ns2jb/runs/` (ignored by Git). If unsuccessful, keep logs, restart the **console** and retry on a fresh process. Upstream reports a timing-sensitive process.
+7. **Restart the console afterward.** This demo does not install persistent custom firmware, as described by the ns2jb authors.
+
+**Risks:** This is a privileged-process memory manipulation demo. It may crash applications or consoles or fail on other firmware. Review the original code and documentation before running. This project doesn't imply that the ns2jb demo is a general-purpose jailbreak or installs custom firmware.
 
 ## Troubleshooting
 
-| Problem | What to check |
-| --- | --- |
-| `xcrun` or `clang` not found | Install Xcode command-line tools. |
-| `vendor/libusbd` missing | Run `./setup.sh` with internet access. |
-| `libusbd.dylib` cannot be loaded | Run with the documented `DYLD_LIBRARY_PATH` environment variable. |
-| `libusbd_init` or interface setup fails | Verify the experimental `usbgadget.kext` is supported and actually loaded. |
-| `USB host did not enumerate a keyboard` | Check the driver, Mac USB device-mode support, cable, port and whether Switch 2 recognizes the emulated HID device. |
-| Text has incorrect punctuation | Set the target keyboard to a US layout; HID maps physical keys, not Unicode characters. |
-| Text is truncated or wrong | Stop, clear the editor, try a longer `--delay-ms`, and verify after typing. |
-| Unsupported byte error | The downloaded source contains a character outside supported ASCII; do not silently transliterate exploit source. |
+| Symptom | Check |
+|---|---|
+| `Missing offline component` | Maintainer must commit all snapshots; users should not fetch moving upstream code. |
+| `clang` / `xcrun` missing | Install compatible Apple developer tools. |
+| `libusbd_init` fails | Experimental device driver must load on supported Mac hardware/OS. |
+| Host never enumerates keyboard | Supported USB controller/port, driver, cable and console HID support. |
+| Wrong punctuation | US keyboard layout and editor focus. |
+| Truncated BASIC | Clear editor and resend slower; review typed source. |
+| `node` missing | Install Node.js 22+; it is a runtime, not a vendored JS dependency. |
+| Connection fails | Check LAN reachability and TCP port 39380, then logs. |
+| Bootstrap failures | Match exact upstream-supported firmware/software and restart as its documentation requests. |
 
-## Publish this on GitHub
+## Publishing on GitHub
 
-1. Create a **new empty GitHub repository** named `switch2-usb-typer`, without initializing it with a README.
-2. From this folder:
+1. Create an empty repository named **`mac2jb`** under your GitHub account **`cpypwn`**: <https://github.com/new>.
+2. Open <https://github.com/cpypwn/mac2jb>, select **Add file → Upload files**, and drag **all files and folders inside** the extracted `mac2jb` directory into GitHub (including the `vendor` and `assets` directories). Commit the upload in the GitHub interface.
+3. Verify the web repository displays `README.md`, `sender.c`, `vendor/libusbd`, `vendor/macos_usb_gadget_poc`, `vendor/ns2jb`, `assets/bootstrap.bas`, and `UPSTREAM.lock`.
 
-   ```sh
-   git init
-   git add README.md Makefile sender.c setup.sh fetch-bootstrap.sh .gitignore
-   git commit -m "Add experimental macOS USB HID text sender"
-   git branch -M main
-   git remote add origin https://github.com/YOUR-USERNAME/switch2-usb-typer.git
-   git push -u origin main
-   ```
+This bundle uses normal files rather than Git submodules; upstream changes cannot silently alter your stored source. Publishing does not remove the need for macOS tools, Node.js, a compatible Mac, or macOS driver approval. Verify redistribution rights before public upload.
 
-3. Replace `YOUR-USERNAME` with your own GitHub username. GitHub may ask you to authenticate.
+## Credits and licenses
 
-## Credits and license notes
-
-- **[shinyquagsire23](https://github.com/shinyquagsire23)** — original [`libusbd`](https://github.com/shinyquagsire23/libusbd) library and [USB gadget proof of concept](https://github.com/shinyquagsire23/macos_usb_gadget_poc). The USB descriptor and initialization layout here are adapted from their [`examples/keyboard/main.c`](https://github.com/shinyquagsire23/libusbd/blob/main/examples/keyboard/main.c). `libusbd` is MIT-licensed; see its original [LICENSE](https://github.com/shinyquagsire23/libusbd/blob/main/LICENSE).
-- **[pepsipu / Sammy Hajhamid](https://gitlab.com/pepsipu/ns2jb)** — upstream `ns2jb` demo and `bootstrap.bas`. The bootstrap and exploit remain upstream; they are fetched at user request, and no license is asserted for them here.
-- **Nintendo / SmileBASIC** — owners of their respective names, software and trademarks; this project is unaffiliated.
-
-This project's original text-input loop, ASCII-to-HID key mapping, and shell scripts are provided under the MIT license in `LICENSE`. The license **does not relicense upstream files**.
-
-## Limitations
-
-- Not tested here on Mac hardware, Switch 2, or real USB links.
-- Assumes a **US keyboard layout** and focus in a plain source editor.
-- No retry/resume based on confirmed text reception: HID keyboard does not acknowledge application-level text entry.
-- No keyboard modifiers beyond left Shift; no clipboard, Unicode, macros, or automatic execution.
-- No warranty; run only on devices you control.
+- [shinyquagsire23](https://github.com/shinyquagsire23) — [`libusbd`](https://github.com/shinyquagsire23/libusbd) (MIT) and the experimental [`macos_usb_gadget_poc`](https://github.com/shinyquagsire23/macos_usb_gadget_poc).
+- [Sammy Hajhamid / pepsipu](https://gitlab.com/pepsipu/ns2jb) — original `ns2jb`, SmileBASIC `bootstrap.bas`, network host and native-demo engine.
+- This repository's integration scripts and USB text sender are MIT-licensed under `LICENSE`; **that license does not automatically cover vendored third-party code**. Preserve upstream licenses/copyright and obtain permission where required.
+- Unaffiliated with Nintendo or SmileBASIC.
