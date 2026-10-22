@@ -34,7 +34,7 @@ xcode-select --install
 On the project GitHub page, select **Code → Download ZIP**, extract the ZIP, and open Terminal in that folder. Or clone your own fork:
 
 ```sh
-git clone https://github.com/cpypwn/switch2-usb-typer.git
+git clone https://github.com/cpypwn/mac2jb.git
 cd switch2-usb-typer
 ```
 
