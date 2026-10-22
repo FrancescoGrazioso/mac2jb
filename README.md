@@ -25,7 +25,7 @@ These are **results from one user's physical hardware testing**, not blanket com
 | mac ports available | three USB-C ports: two left, one right |
 | mac port used | **upper-left USB-C port** (topmost on the left side) |
 | switch 2 connection | **top USB-C port on the Switch 2** |
-| switch 2 mode | **docked**, for the final repeatable setup |
+| switch 2 mode | docked and undocked (both tested successfully) |
 | cable | USB 2.0 **data-capable USB-C to USB-C** cable |
 | selected gadget controller | **`usb-drd1`** |
 | gadget driver | `gay.bowser.usbgadget` / `usbgadget.kext`, version `1.01` observed loaded |
@@ -97,8 +97,7 @@ the vendored library binary, so the next `make` recompiles them both.
 ### 3. test the USB connection before sending code
 
 Use the **upper-left Mac USB-C port** to the **top Switch 2 USB-C port** with
-a data-capable USB 2.0 USB-C-to-USB-C cable. The test system had its
-Switch 2 **docked** and the Mac's working controller was **`usb-drd1`**.
+a data-capable USB 2.0 USB-C-to-USB-C cable. mac2jb has been successfully tested with the switch 2 both docked and undocked. the confirmed setup uses `usb-drd1`, the upper-left usb-c port on the macbook pro, and the top usb-c port on the switch 2 with a usb 2.0 data-capable cable.
 Open an *empty, focused* SmileBASIC editor.
 
 ```sh
@@ -208,7 +207,7 @@ This is a **chronological troubleshooting history**, not a Git commit history or
 1. **Bundled the source and bootstrap.** Created the mac2jb integration from pinned `libusbd`, `macos_usb_gadget_poc`, and `ns2jb`, with offline source builds and USB text-sending scripts.
 2. **First build/runtime problem: dylib search path.** `mac2jb-send` originally couldn't launch because `libusbd.dylib` wasn't found by the dynamic loader. Added an executable-relative rpath to the Makefile and rebuilt.
 3. **Loaded the experimental driver.** After code-signing/security investigation, `kmutil` confirmed `gay.bowser.usbgadget (1.01)` was loaded on the M4 test Mac. SIP was temporarily disabled in that research environment.
-4. **Discovered the wrong hardcoded controller.** The first `hello` test failed with `Failed to find gay_bowser_usbgadget`. `ioreg` showed `usb-drd0`, `usb-drd1`, and `usb-drd3` services — **no `usb-drd2`** — while vendored `libusbd` searched for `usb-drd2` in **two places**.
+4. **Discovered the wrong hardcoded controller.** The first `hello` test failed with `Failed to find gay_bowser_usbgadget`. `ioreg` showed `usb-drd0`, `usb-drd1`, and `usb-drd3` services — **no `usb-drd2`** — while vendored `libusbd` searched for `usb-drd2` in **two places**. docked and undocked compatibility confirmed. usb hid keyboard emulation successfully transmitted text to the switch 2 in both docked and undocked configurations using the top usb-c port. usb-drd1 was the working controller on the m4 macbook pro.
 5. **Confirmed service discovery after editing both references.** Replacing the hardcoded controller enabled `libusbd` to connect to `gay_bowser_usbgadget` and its generated `IOUSBDeviceInterface`. Enumeration still initially timed out.
 6. **Corrected an HID descriptor inconsistency.** The embedded keyboard report descriptor was **65 bytes**, but the HID descriptor advertised **93 bytes (`0x5D`)**. The updated test build used the actual report length.
 7. **Added controller selection.** Instead of editing the C source for every test, introduced `MAC2JB_CONTROLLER` and a controller test script for `usb-drd0`, `usb-drd1`, and `usb-drd3`.
