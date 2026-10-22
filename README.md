@@ -50,7 +50,7 @@ The physical ports are **not** universally mapped to `usb-drd0`, `usb-drd1`, and
 
 ## files and prerequisites
 
-You need an Apple silicon Mac, Xcode Command Line Tools, **full Xcode for building the kext**, and the checked-in vendored source. For later `ns2jb` network-host work, the pinned project's host also needs Node.js 22+ and an appropriate local network. The device/SmileBASIC software versions required for that separate stage must match the vendored upstream `ns2jb` instructions; the original bundled README specified Switch 2 system software `23.0.1` and SmileBASIC `4.4.9`, but those versions were **not independently reconfirmed during these USB keyboard tests**.
+You need an Apple silicon Mac, Xcode Command Line Tools, **full Xcode for building the kext**, and the checked-in vendored source. For later `ns2jb` network-host work, the pinned project's host also needs Node.js 22+ and an appropriate local network. The device/SmileBASIC software versions required for that separate stage must match the vendored upstream `ns2jb` instructions; the original bundled README specified Switch 2 system software `23.0.1` and SmileBASIC `4.4.9`.
 
 From the extracted project folder (containing `Makefile`):
 
