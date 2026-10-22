@@ -183,6 +183,8 @@ and `Makefile`, then build from that directory:
 make -f Makefile -f commands.mk mac2jb-commands
 ```
 
+**macos library compatibility:** `commands.mk` automatically corrects the `libusbd.dylib` runtime reference and re-signs `mac2jb-commands` during compilation. this prevents the `dyld: Library not loaded: libusbd.dylib` error encountered in earlier builds. no manual `install_name_tool` commands are required.
+
 Review the exact commands without connecting to USB:
 
 ```sh
