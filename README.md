@@ -1,4 +1,4 @@
-# Switch 2 USB text sender (macOS / libusbd)
+# mac2jb
 
 An experimental, minimal **USB HID keyboard text sender** for entering the upstream [`ns2jb/bootstrap.bas`](https://gitlab.com/pepsipu/ns2jb/-/blob/main/bootstrap.bas) file into the **SmileBASIC editor on a Nintendo Switch 2** using a USB cable and an Apple Silicon Mac.
 
@@ -34,11 +34,11 @@ xcode-select --install
 On the project GitHub page, select **Code → Download ZIP**, extract the ZIP, and open Terminal in that folder. Or clone your own fork:
 
 ```sh
-git clone https://github.com/YOUR-USERNAME/switch2-usb-typer.git
+git clone https://github.com/cpypwn/switch2-usb-typer.git
 cd switch2-usb-typer
 ```
 
-Replace `YOUR-USERNAME` with your GitHub account name. For a downloaded ZIP, `cd` into the extracted folder instead.
+For a downloaded ZIP, `cd` into the extracted folder instead.
 
 ## 3. Build the sender and `libusbd`
 
