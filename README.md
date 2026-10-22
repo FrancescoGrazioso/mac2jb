@@ -157,7 +157,7 @@ punctuation, and indentation are correct **before saving or running** the
 program. Sending text is not proof of successful execution of the ns2jb
 bootstrap or network stage.
 
-### 6. optional ns2jb host stage
+### 6. start the ns2jb host
 
 The separate ns2jb network host is bundled under `vendor/ns2jb`. Consult
 its `README.md` and the pinned upstream requirements before using:
@@ -169,6 +169,52 @@ bash scripts/host.sh --help
 `--help` is passed to the upstream host; its exact supported CLI options
 depend on that vendored version. `bash scripts/check.sh` also checks for
 Node.js 22+ on the Mac.
+
+### 7. send the post-bootstrap commands
+
+After the saved `bootstrap.bas` has been transferred to SmileBASIC, the
+post-bootstrap commands can be entered with the optional `mac2jb-commands`
+sender. This is a separate executable and does not modify `mac2jb-send`.
+
+Copy `commands.c` and `commands.mk` into the project root beside `sender.c`
+and `Makefile`, then build from that directory:
+
+```sh
+make -f Makefile -f commands.mk mac2jb-commands
+```
+
+Review the exact commands without connecting to USB:
+
+```sh
+./mac2jb-commands --dry-run
+```
+
+Start the vendored `run.cjs` host in its own Mac Terminal session, following
+the host's instructions. In a fresh SmileBASIC session, load the saved bootstrap.
+Connect the confirmed USB-C cable/controller (`usb-drd1` on the tested M4 Mac)
+and run:
+
+```sh
+MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-commands --delay-ms 50
+```
+
+The sender first asks for `READY`. It then requests separate `SEND`
+confirmations before submitting each of these commands with Enter:
+
+1. `RUN`
+2. `REMOVE NSR,&H60000000,&H3FFFFFFF`
+3. `V=START(39380,192,168,1,234,265585147389886,202646013124119,133644908482058,64977224470249)`
+
+**IMPORTANT:** After command 2, wait for the expected **Out of memory** message
+in SmileBASIC and enter `OOM` at the Mac prompt *only after seeing it*. The
+sender cannot read the Switch screen, so it cannot verify the message itself.
+The user must also focus SmileBASIC's command entry before each step. The
+sender does not start `run.cjs` or confirm that any stage completed successfully.
+
+If a key repeats because USB disconnected during a write, unplug/reconnect
+the data cable to reset the HID connection. The program attempts a neutral key
+release on exit, but that is best-effort.
+
 
 ## timing and safety notes
 
