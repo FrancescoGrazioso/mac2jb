@@ -98,29 +98,11 @@ the vendored library binary, so the next `make` recompiles them both.
 
 ### usb controller selection
 
-mac2jb supports configurable usb gadget controllers through the `MAC2JB_CONTROLLER` environment variable.
-
-the original libusbd implementation was hardcoded to `usb-drd2`, which is not available on the tested m4 macbook pro. mac2jb modifies the vendored library to support `usb-drd0`, `usb-drd1`, and `usb-drd3` without requiring manual source-code changes.
-
-**the default controller is `usb-drd1`**, which has been verified on the m4 macbook pro (`Mac16,1`) running macos 26.4.1.
-
-to explicitly select the tested controller:
-
-```bash
-MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-send indent-test.bas --delay-ms 50
-```
-
-for the post-bootstrap command sender:
-
-```bash
-MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-commands --delay-ms 50
-```
-
-other supported controller selections include `usb-drd0` and `usb-drd3`, although these have not been confirmed to work with the tested physical usb-c connection.
-
-controller selection is handled directly by the bundled libusbd source and applies to both senders. users no longer need to manually replace `usb-drd2` references or modify source files after rebuilding.
-
-**note:** loading the usb gadget driver does not guarantee successful keyboard enumeration. the correct controller, physical usb port, cable, and usb data roles must all be compatible.
+The patched `vendor/libusbd/src/plat/macos/impl.c` uses `usb-drd1` by default
+on the verified M4 configuration. Set `MAC2JB_CONTROLLER=usb-drd0`,
+`usb-drd1`, or `usb-drd3` when a different controller is appropriate.
+The selection applies to both senders and survives clean rebuilds because
+it is implemented in the vendored source, not patched into binaries.
 
 ### 3. test the USB connection before sending code
 
@@ -185,64 +167,44 @@ bootstrap or network stage.
 
 ### 6. start the ns2jb host
 
-The separate ns2jb network host is bundled under `vendor/ns2jb`. Consult
-its `README.md` and the pinned upstream requirements before using:
+The separate ns2jb host is bundled under `vendor/ns2jb`. Consult the pinned
+upstream instructions for the expected network setup and prerequisites. In a
+**separate Terminal window**, start the host with:
 
 ```sh
-bash scripts/host.sh --help
+bash scripts/host.sh
 ```
 
-`--help` is passed to the upstream host; its exact supported CLI options
-depend on that vendored version. `bash scripts/check.sh` also checks for
-Node.js 22+ on the Mac.
+Keep it running. The final `V=START(...)` command below includes network
+parameters for a particular host setup; confirm they match your network and
+vendored ns2jb configuration before sending it.
 
 ### 7. send the post-bootstrap commands
 
-After the saved `bootstrap.bas` has been transferred to SmileBASIC, the
-post-bootstrap commands can be entered with the optional `mac2jb-commands`
-sender. This is a separate executable and does not modify `mac2jb-send`.
-
-Copy `commands.c` and `commands.mk` into the project root beside `sender.c`
-and `Makefile`, then build from that directory:
+The same `make` command builds **both** `mac2jb-send` and `mac2jb-commands`.
+Both source files are already bundled in the repository. No separate
+`commands.mk`, manual library patch, or download is needed:
 
 ```sh
-make -f Makefile -f commands.mk mac2jb-commands
-```
-
-**macos library compatibility:** `commands.mk` automatically corrects the `libusbd.dylib` runtime reference and re-signs `mac2jb-commands` during compilation. this prevents the `dyld: Library not loaded: libusbd.dylib` error encountered in earlier builds. no manual `install_name_tool` commands are required.
-
-Review the exact commands without connecting to USB:
-
-```sh
+make clean && make
 ./mac2jb-commands --dry-run
 ```
 
-Start the vendored `run.cjs` host in its own Mac Terminal session, following
-the host's instructions. In a fresh SmileBASIC session, load the saved bootstrap.
-Connect the confirmed USB-C cable/controller (`usb-drd1` on the tested M4 Mac)
-and run:
+The vendored library now embeds `@rpath/libusbd.dylib` as its install name;
+the executables look for it relative to the repository root at runtime.
+Open a fresh SmileBASIC session, load the saved bootstrap, keep `run.cjs`
+running in the other Terminal window, and focus the command-entry area.
 
 ```sh
 MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-commands --delay-ms 50
 ```
 
-The sender first asks for `READY`. It then requests separate `SEND`
-confirmations before submitting each of these commands with Enter:
-
-1. `RUN`
-2. `REMOVE NSR,&H60000000,&H3FFFFFFF`
-3. `V=START(39380,192,168,1,234,265585147389886,202646013124119,133644908482058,64977224470249)`
-
-**IMPORTANT:** After command 2, wait for the expected **Out of memory** message
-in SmileBASIC and enter `OOM` at the Mac prompt *only after seeing it*. The
-sender cannot read the Switch screen, so it cannot verify the message itself.
-The user must also focus SmileBASIC's command entry before each step. The
-sender does not start `run.cjs` or confirm that any stage completed successfully.
-
-If a key repeats because USB disconnected during a write, unplug/reconnect
-the data cable to reset the HID connection. The program attempts a neutral key
-release on exit, but that is best-effort.
-
+The sender requires `READY`, then prompts before sending each command with
+Enter: `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and
+`V=START(39380,192,168,1,234,265585147389886,202646013124119,133644908482058,64977224470249)`.
+After `REMOVE`, enter `OOM` only when you have seen the expected **Out of
+memory** message on the console. The sender cannot verify the console
+screen or confirm the exploit's result.
 
 ## timing and safety notes
 
@@ -304,8 +266,10 @@ This is a **chronological troubleshooting history**, not a Git commit history or
 20. **Determined the editor's real rule.** The tester established that **Enter carries the previous line's manually entered leading spaces**, and extra spaces or Backspace are needed only when the desired indentation changes.
 21. **Built a separate inherited-indent sender.** The tested `sender-indent-test.c` tracked the carried-forward indent and applied a per-line difference. A real `COMMON DEF P$(V#)` / `FOR` / `NEXT` / `RETURN` / `END` test typed with correct spaces and newlines. The tester reported that the full bootstrap also worked flawlessly with this approach.
 22. **Consolidated the working sender for a manual GitHub push.** The tested `sender-indent-test.c` was promoted to `sender.c`, the default `make` target and scripts were aligned, and the trimmed bootstrap checksum was updated. Previously, the GitHub connector could read `cpypwn/mac2jb` but returned `403 Resource not accessible by integration` for branch creation despite reporting push permission. The maintainer chose to push from the Mac. **This README records the tested snapshot; it does not imply any commit or push has occurred.**
-23. **Added Interactive Post-Bootstrap Command Sender.** Introduced `mac2jb-commands`, a separate USB HID sender that prompts the user before sending `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and `V=START(...)` in sequence. The workflow is intended for use after initializing the ns2jb host on the Mac and loading the saved bootstrap in SmileBASIC.
-24. **Permanent USB Controller Selection Fix.** Replaced the original hardcoded `usb-drd2` references in the vendored libusbd implementation with configurable controller selection through `MAC2JB_CONTROLLER`. Both `mac2jb-send` and `mac2jb-commands` now use the same controller configuration. The default is `usb-drd1`, matching the verified M4 MacBook Pro setup. This eliminates the need to manually patch libusbd after downloading or rebuilding mac2jb.
+
+23. **Added Interactive Post-Bootstrap Command Sender.** Introduced `mac2jb-commands`, a separate USB HID sender that prompts before sending `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and `V=START(...)` in order, for use after initializing the ns2jb host on the Mac.
+24. **Permanent USB Controller Selection Fix.** Replaced hardcoded `usb-drd2` service matching with `MAC2JB_CONTROLLER` selection and `usb-drd1` as the default for the verified M4 setup.
+25. **Consolidated Builds and Release Packaging.** Corrected libusbd's install name, built both senders from one Makefile, removed the separate commands build requirement, updated the README and release packager, and added macOS build-only CI.
 
 ### lessons from the debugging log
 
@@ -314,8 +278,9 @@ A driver **loading** is not the same as a device **enumerating**, and an enumera
 ## repository layout
 
 ```text
-Makefile                             builds mac2jb-send from tested sender.c
+Makefile                             builds both mac2jb-send and mac2jb-commands
 sender.c                             tested inherited-indentation HID sender
+commands.c                           separate post-bootstrap command sender
 indent-test.bas                      short indentation test input
 assets/bootstrap.bas                 trimmed sendable bootstrap
 assets/bootstrap.bas.sha256          checksum of trimmed sendable bootstrap
@@ -330,6 +295,7 @@ vendor/libusbd/                      pinned USB device-mode library
 vendor/macos_usb_gadget_poc/         pinned research kext source
 vendor/ns2jb/                        pinned ns2jb project
 upstream.lock                        pinned upstream revision identifiers
+.github/workflows/build.yml          build-only macOS CI
 ```
 
 Use `make-release-zip.command` on macOS to generate a release archive
@@ -343,3 +309,18 @@ is included; **the prebuilt, locally approved kernel extension is not**.
 - [cpypwn](https://github.com/cpypwn) — mac2jb integration and testing.
 
 This project is independent and not affiliated with Nintendo or SmileBASIC. Respect the licenses and redistribution terms of the vendored upstream projects; an integration-level license does not override third-party rights.
+## building releases
+
+From a fresh clone on supported Apple silicon macOS hardware, `make` builds
+both senders and libusbd. `make clean` removes their binaries. When changing
+vendored libusbd build flags, always run a clean rebuild.
+
+```sh
+make clean && make
+bash make-release-zip.command
+```
+
+The release ZIP contains both sender sources, the test data, README, scripts,
+and vendored sources, but not locally compiled binaries or kernel extensions.
+A macOS GitHub Actions workflow tests compilation, dry-run behavior, checksum,
+and packaging. It cannot test real Switch 2 USB enumeration or host execution.
