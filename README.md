@@ -96,6 +96,32 @@ ls -l mac2jb-send
 executable-relative runtime search path. `make clean` removes the sender and
 the vendored library binary, so the next `make` recompiles them both.
 
+### usb controller selection
+
+mac2jb supports configurable usb gadget controllers through the `MAC2JB_CONTROLLER` environment variable.
+
+the original libusbd implementation was hardcoded to `usb-drd2`, which is not available on the tested m4 macbook pro. mac2jb modifies the vendored library to support `usb-drd0`, `usb-drd1`, and `usb-drd3` without requiring manual source-code changes.
+
+**the default controller is `usb-drd1`**, which has been verified on the m4 macbook pro (`Mac16,1`) running macos 26.4.1.
+
+to explicitly select the tested controller:
+
+```bash
+MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-send indent-test.bas --delay-ms 50
+```
+
+for the post-bootstrap command sender:
+
+```bash
+MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-commands --delay-ms 50
+```
+
+other supported controller selections include `usb-drd0` and `usb-drd3`, although these have not been confirmed to work with the tested physical usb-c connection.
+
+controller selection is handled directly by the bundled libusbd source and applies to both senders. users no longer need to manually replace `usb-drd2` references or modify source files after rebuilding.
+
+**note:** loading the usb gadget driver does not guarantee successful keyboard enumeration. the correct controller, physical usb port, cable, and usb data roles must all be compatible.
+
 ### 3. test the USB connection before sending code
 
 Connect the **upper-left Mac USB-C port** to the **top Switch 2 USB-C port**
@@ -278,7 +304,8 @@ This is a **chronological troubleshooting history**, not a Git commit history or
 20. **Determined the editor's real rule.** The tester established that **Enter carries the previous line's manually entered leading spaces**, and extra spaces or Backspace are needed only when the desired indentation changes.
 21. **Built a separate inherited-indent sender.** The tested `sender-indent-test.c` tracked the carried-forward indent and applied a per-line difference. A real `COMMON DEF P$(V#)` / `FOR` / `NEXT` / `RETURN` / `END` test typed with correct spaces and newlines. The tester reported that the full bootstrap also worked flawlessly with this approach.
 22. **Consolidated the working sender for a manual GitHub push.** The tested `sender-indent-test.c` was promoted to `sender.c`, the default `make` target and scripts were aligned, and the trimmed bootstrap checksum was updated. Previously, the GitHub connector could read `cpypwn/mac2jb` but returned `403 Resource not accessible by integration` for branch creation despite reporting push permission. The maintainer chose to push from the Mac. **This README records the tested snapshot; it does not imply any commit or push has occurred.**
-23. **Added interactive post-bootstrap command sender.** Introduced `mac2jb-commands`, a separate usb hid sender that prompts the user before sending `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and `V=START(...)` in sequence. the workflow is intended for use after initializing the ns2jb host on the mac and loading the saved bootstrap in smilebasic.
+23. **Added Interactive Post-Bootstrap Command Sender.** Introduced `mac2jb-commands`, a separate USB HID sender that prompts the user before sending `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and `V=START(...)` in sequence. The workflow is intended for use after initializing the ns2jb host on the Mac and loading the saved bootstrap in SmileBASIC.
+24. **Permanent USB Controller Selection Fix.** Replaced the original hardcoded `usb-drd2` references in the vendored libusbd implementation with configurable controller selection through `MAC2JB_CONTROLLER`. Both `mac2jb-send` and `mac2jb-commands` now use the same controller configuration. The default is `usb-drd1`, matching the verified M4 MacBook Pro setup. This eliminates the need to manually patch libusbd after downloading or rebuilding mac2jb.
 
 ### lessons from the debugging log
 
