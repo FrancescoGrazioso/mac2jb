@@ -25,6 +25,8 @@ These are **results from one user's physical hardware testing**, not blanket com
 | mac ports available | three USB-C ports: two left, one right |
 | mac port used | **upper-left USB-C port** (topmost on the left side) |
 | switch 2 connection | **top USB-C port on the Switch 2** |
+| switch 2 firmware | 23.0.1 |
+| smilebasic version | 4.4.9 |
 | switch 2 mode | docked and undocked (both tested successfully) |
 | cable | USB 2.0 **data-capable USB-C to USB-C** cable |
 | selected gadget controller | **`usb-drd1`** |
@@ -212,18 +214,19 @@ This is a **chronological troubleshooting history**, not a Git commit history or
 6. **Corrected an HID descriptor inconsistency.** The embedded keyboard report descriptor was **65 bytes**, but the HID descriptor advertised **93 bytes (`0x5D`)**. The updated test build used the actual report length.
 7. **Added controller selection.** Instead of editing the C source for every test, introduced `MAC2JB_CONTROLLER` and a controller test script for `usb-drd0`, `usb-drd1`, and `usb-drd3`.
 8. **First successful physical USB HID transmission.** With **`usb-drd1`**, the Mac's **upper-left USB-C port**, the Switch 2's **top USB-C port**, a **USB 2.0 data-capable USB-C cable**, and the Switch **docked**, `hello` appeared in SmileBASIC. An undocked attempt reportedly worked once too, but it could not be reproduced consistently.
-9. **Worked around intermittent enumeration.** Several docked/undocked tests and Mac ports failed after the first success. Returning to the known port/controller setup eventually restored successful typing. Root cause of the intermittent behavior was **not fully identified**.
-10. **Found inverted letter capitalization.** SmileBASIC produced uppercase letters without Shift, and lowercase with Shift on the tested editor. Reversed letter Shift handling in the sender. Symbol and punctuation correctness still requires inspection of the received code.
-11. **Transferred bootstrap text.** After dry-run validation and typing tests, the tester confirmed the bootstrap reached the editor. First transfers exposed performance and whitespace problems.
-12. **Measured delay behavior.** Lowered pacing from 100 ms to 20, 10, 5, and 1 ms. The tester reported 10 and 1 ms worked, but little perceptible speed increase below about 50 ms; very short delays were less reliable.
-13. **Discovered a stuck-key failure mode.** Interrupting a transfer between key-down and key-up could leave a repeating character on the Switch. Added best-effort neutral-report cleanup, bounded retries, and transfer timing statistics.
-14. **Removed nonexecutable bootstrap header text.** Removed the first four comment lines and one blank line in the sendable copy, trimming it from **8,108 to 7,804 bytes**, while retaining the untouched upstream copy under `vendor/ns2jb`.
-15. **First indentation attempt: literal spaces.** The sender typed every source indent again after SmileBASIC had already carried the previous line's indent. Nested blocks accumulated too many spaces.
-16. **Second attempt: keyword-aware “smart” indentation.** Tried guessing new indent levels from `COMMON DEF`, `FOR`, etc. This removed required indentation, because the editor actually inherits whitespace rather than indenting by syntax.
-17. **Third attempt: Shift+Home/Backspace reset.** Attempted to clear each new line's indent wholesale. On the console, this also removed line breaks. The method was abandoned.
-18. **Determined the editor's real rule.** The tester established that **Enter carries the previous line's manually entered leading spaces**, and extra spaces or Backspace are needed only when the desired indentation changes.
-19. **Built a separate inherited-indent sender.** The tested `sender-indent-test.c` tracked the carried-forward indent and applied a per-line difference. A real `COMMON DEF P$(V#)` / `FOR` / `NEXT` / `RETURN` / `END` test typed with correct spaces and newlines. The tester reported that the full bootstrap also worked flawlessly with this approach.
-20. **Consolidated the working sender for a manual GitHub push.** The tested `sender-indent-test.c` was promoted to `sender.c`, the default `make` target and scripts were aligned, and the trimmed bootstrap checksum was updated. Previously, the GitHub connector could read `cpypwn/mac2jb` but returned `403 Resource not accessible by integration` for branch creation despite reporting push permission. The maintainer chose to push from the Mac. **This README records the tested snapshot; it does not imply any commit or push has occurred.**
+9. **Latest firmware compatibility confirmed.** mac2jb was successfully tested on nintendo switch 2 running the latest system firmware available on october 22, 2026, with smilebasic version 4.4.9. usb hid keyboard emulation and bootstrap text transmission worked in both docked and undocked configurations.
+10. **Worked around intermittent enumeration.** Several docked/undocked tests and Mac ports failed after the first success. Returning to the known port/controller setup eventually restored successful typing. Root cause of the intermittent behavior was **not fully identified**.
+11. **Found inverted letter capitalization.** SmileBASIC produced uppercase letters without Shift, and lowercase with Shift on the tested editor. Reversed letter Shift handling in the sender. Symbol and punctuation correctness still requires inspection of the received code.
+12. **Transferred bootstrap text.** After dry-run validation and typing tests, the tester confirmed the bootstrap reached the editor. First transfers exposed performance and whitespace problems.
+13. **Measured delay behavior.** Lowered pacing from 100 ms to 20, 10, 5, and 1 ms. The tester reported 10 and 1 ms worked, but little perceptible speed increase below about 50 ms; very short delays were less reliable.
+14. **Discovered a stuck-key failure mode.** Interrupting a transfer between key-down and key-up could leave a repeating character on the Switch. Added best-effort neutral-report cleanup, bounded retries, and transfer timing statistics.
+15. **Removed nonexecutable bootstrap header text.** Removed the first four comment lines and one blank line in the sendable copy, trimming it from **8,108 to 7,804 bytes**, while retaining the untouched upstream copy under `vendor/ns2jb`.
+16. **First indentation attempt: literal spaces.** The sender typed every source indent again after SmileBASIC had already carried the previous line's indent. Nested blocks accumulated too many spaces.
+17. **Second attempt: keyword-aware “smart” indentation.** Tried guessing new indent levels from `COMMON DEF`, `FOR`, etc. This removed required indentation, because the editor actually inherits whitespace rather than indenting by syntax.
+18. **Third attempt: Shift+Home/Backspace reset.** Attempted to clear each new line's indent wholesale. On the console, this also removed line breaks. The method was abandoned.
+19. **Determined the editor's real rule.** The tester established that **Enter carries the previous line's manually entered leading spaces**, and extra spaces or Backspace are needed only when the desired indentation changes.
+20. **Built a separate inherited-indent sender.** The tested `sender-indent-test.c` tracked the carried-forward indent and applied a per-line difference. A real `COMMON DEF P$(V#)` / `FOR` / `NEXT` / `RETURN` / `END` test typed with correct spaces and newlines. The tester reported that the full bootstrap also worked flawlessly with this approach.
+21. **Consolidated the working sender for a manual GitHub push.** The tested `sender-indent-test.c` was promoted to `sender.c`, the default `make` target and scripts were aligned, and the trimmed bootstrap checksum was updated. Previously, the GitHub connector could read `cpypwn/mac2jb` but returned `403 Resource not accessible by integration` for branch creation despite reporting push permission. The maintainer chose to push from the Mac. **This README records the tested snapshot; it does not imply any commit or push has occurred.**
 
 ### lessons from the debugging log
 
