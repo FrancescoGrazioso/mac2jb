@@ -126,45 +126,13 @@ on a dedicated research machine by someone who understands the risk.
    instructions. If macOS requests approval, review it in
    **System Settings → Privacy & Security** and restart as directed.
 
-#### recovery terminal command used on the tested mac
-
-In addition to Reduced Security and kernel-extension approval, the maintainer
-**disabled System Integrity Protection (SIP)** in macOS Recovery during the
-successful M4 test. This is a separate security change, not a side effect of
-selecting Reduced Security.
-
-To reproduce **that exact tested configuration**, while still in macOS Recovery
-(opened using the power-button startup-options steps above), choose
-**Utilities → Terminal** and enter:
-
-```sh
-csrutil disable
-```
-
-Follow the on-screen confirmation and restart the Mac. This command must be
-run in **Recovery Terminal**, not a normal Terminal window in macOS. You can
-check the resulting state after restarting with:
-
-```sh
-csrutil status
-```
-
-**Security warning:** Disabling SIP removes significant system protections.
-The tested setup had SIP disabled, but it has **not** been established that
-SIP must be disabled on every Apple silicon model or macOS version. Only do
-this if you deliberately choose to reproduce the tested research environment
-and understand the security implications. It is separate from allowing
-third-party kernel extensions.
-
-After testing, return to **macOS Recovery → Utilities → Terminal** and restore
-SIP with:
-
-```sh
-csrutil enable
-```
-
-Restart afterward, and restore your normal Startup Security Utility policy
-when you no longer need the experimental kernel extension.
+**Important:** The maintainer's tested configuration also had **System
+Integrity Protection (SIP) disabled**. Reduced Security and kernel-extension
+approval do **not** automatically disable SIP, and we have not established that
+SIP must be disabled on every supported macOS configuration. Do not turn it
+off automatically as part of setup; investigate any specific code-signing
+or loading errors first. Restore your normal security policy when finished
+with testing.
 
 Apple documentation:
 [Startup security settings on Apple silicon](https://support.apple.com/en-euro/guide/mac-help/mchl768f7291/27/mac/27)
@@ -283,7 +251,7 @@ configure its network settings before using the wrapper:
 bash scripts/host.sh
 ```
 
-Keep the host running in a separate Terminal session. The `V=START(...)`
+Keep the host running in a separate Terminal session. **The pairing values change every host run.** Start it through `bash scripts/host.sh`, which publishes the current session command for `mac2jb-commands`. Never reuse a previous `V=START(...)` line. The `V=START(...)`
 command below contains specific IP-address and other parameters; verify they
 match your actual host configuration before sending it.
 
@@ -314,7 +282,7 @@ followed by Enter:
 
 1. `RUN`
 2. `REMOVE NSR,&H60000000,&H3FFFFFFF`
-3. `V=START(39380,192,168,1,234,265585147389886,202646013124119,133644908482058,64977224470249)`
+3. The **fresh `V=START(...)` command from the currently running host**, loaded automatically from its active session (never hardcoded).
 
 Before the third command it asks you to confirm the expected **Out of memory**
 message before pressing Enter to continue. The sender cannot observe the Switch screen or
@@ -451,3 +419,26 @@ The prior macOS GitHub Actions workflow passed source builds, dry-runs, checksum
 validation, and release packaging. CI cannot itself verify USB operation on actual
 hardware, but the maintainer has separately completed the full process on the
 documented physical test setup.
+
+
+## Session-specific V=START command (critical)
+
+**Never hardcode or reuse `V=START(...)`.** The IP address may differ and the
+ns2jb host generates four new pairing token values on each launch.
+Start the host using `bash scripts/host.sh` in Terminal 1; the included
+`scripts/host-wrapper.cjs` copies the newly printed command to
+`vendor/ns2jb/runs/mac2jb-active-connect.txt` while the host is running.
+In Terminal 2, run `./mac2jb-commands --delay-ms 50`: the sender validates
+the command and checks that its associated host process is still active.
+If the host is not running, **the sender refuses to transmit any commands**.
+This avoids accidentally submitting an old session's pairing token.
+
+`./mac2jb-commands --dry-run` does not require an active host and shows a
+placeholder instead. Use `bash scripts/host.sh` rather than invoking
+`node vendor/ns2jb/run.cjs` directly, since direct invocation will not create
+the active-session record for automatic sending.
+
+The active-session file includes secret pairing values and should not be
+committed to Git or included in release archives. The host wrapper removes
+it on normal exit; after an abnormal termination, the sender checks whether
+the recorded host process is still running.
