@@ -25,13 +25,13 @@ These are **results from one user's physical hardware testing**, not blanket com
 | macOS | `26.4.1` |
 | firmware observed | system firmware `18000.101.7`, OS loader `18000.101.7` |
 | mac ports available | three USB-C ports: two left, one right |
-| mac port used | **upper-left USB-C port only** on the tested Mac; other Mac ports have not worked |
+| mac port used | **all three USB-C ports** with their matching controllers (see mapping below) |
 | switch 2 connection | **top or bottom USB-C port on the Switch 2**; both confirmed working |
 | switch 2 firmware | 23.0.1 |
 | smilebasic version | 4.4.9 |
 | switch 2 mode | **docked and undocked**, both consistently working with the tested build |
 | cable | USB 2.0 **data-capable USB-C to USB-C** cable |
-| selected gadget controller | **`usb-drd1`** |
+| USB controller selection | three port/controller pairs confirmed manually; automatic selection added and pending physical validation |
 | USB power direction | Switch 2 **must not be charging from the Mac** for USB host enumeration to work; reconnect the cable to correct the power direction |
 | gadget driver | `gay.bowser.usbgadget` / `usbgadget.kext`, version `1.01` observed loaded |
 | keyboard smoke test | `hello` appeared inside SmileBASIC |
@@ -44,9 +44,19 @@ These are **results from one user's physical hardware testing**, not blanket com
 
 The first successful USB keyboard test was docked. The next undocked test also succeeded, but several early subsequent attempts failed to enumerate in either mode. In the next build, the tester reported reliable operation **both docked and undocked**. The cause of the initial intermittent behavior was not isolated; it does not characterize the current verified build.
 
-More recent testing confirmed that **either USB-C port on the Switch 2 works**, while the **upper-left Mac USB-C port remains the only working Mac port**. USB host enumeration also requires that the Switch 2 **not draw charging power from the Mac**. If the Switch is charging from the Mac, disconnect and reconnect the USB-C cable; on the tested setup this corrects the power direction and allows enumeration. The Switch may supply power to the Mac instead. This procedure also works when the Mac is already charging separately, as long as the Mac is not supplying charging power to the Switch.
+More recent testing confirmed that **either USB-C port on the Switch 2 works**, and that **all three MacBook USB-C ports work with their respective USB controllers**. USB host enumeration also requires that the Switch 2 **not draw charging power from the Mac**. If the Switch is charging from the Mac, disconnect and reconnect the USB-C cable; on the tested setup this corrects the power direction and allows enumeration. The Switch may supply power to the Mac instead. This procedure also works when the Mac is already charging separately, as long as the Mac is not supplying charging power to the Switch.
 
-The physical ports are **not** universally mapped to `usb-drd0`, `usb-drd1`, and `usb-drd3` on all Apple silicon Macs. `usb-drd1` is the *empirically working choice for the test machine*, not a universal default.
+### tested Mac USB-C port mapping
+
+| physical port on M4 MacBook Pro (`Mac16,1`) | USB controller | status |
+| --- | --- | --- |
+| upper-left USB-C | `usb-drd1` | confirmed working |
+| lower-left USB-C | `usb-drd0` | confirmed working |
+| right-side USB-C | `usb-drd3` | confirmed working |
+
+**Automatic controller selection (new):** when `MAC2JB_CONTROLLER` is unset or set to `auto`, mac2jb tries `usb-drd0`, then `usb-drd1`, then `usb-drd3`, allowing **4 seconds for enumeration per controller**. Only after a controller enumerates does the sender transmit text. This behavior applies to both `mac2jb-send` and `mac2jb-commands`. If automatic probing fails, check the cable and charging direction, or set `MAC2JB_CONTROLLER=usb-drd1` (or `usb-drd0` / `usb-drd3`) for the matching physical port. An explicit override bypasses automatic probing. The timeout and automatic probing need physical-hardware validation before being considered verified; existing manual selection remains available.
+
+The physical mapping is confirmed **only for the tested `Mac16,1`**. Do not assume other Apple silicon Macs have identical controller assignments. Some other models may expose `usb-drd2`, `usb-drd4`, or other numbered controllers; this is not verified by mac2jb testing. Auto mode intentionally probes only the three confirmed controllers (`usb-drd0`, `usb-drd1`, `usb-drd3`), while `MAC2JB_CONTROLLER=usb-drdN` accepts controller numbers from 0 through 15 for manual investigation. An accepted number does not guarantee that a controller exists or supports gadget mode.
 
 ## SmileBASIC full game vs. demo
 
@@ -96,13 +106,45 @@ Expected architecture: `arm64`. No upstream clone is needed: the source is under
 
 ## build and test — step by step
 
+### prerequisite: allow legacy kernel extensions in startup security settings
+
+This project depends on an experimental, third-party `usbgadget.kext`. On Apple
+silicon, macOS normally blocks legacy kernel extensions unless the startup
+disk is configured for **Reduced Security** with kernel-extension management
+enabled. This reduces the protection of the computer and should only be done
+on a dedicated research machine by someone who understands the risk.
+
+1. Shut down the Mac.
+2. Hold the power button until **Loading startup options** appears.
+3. Select **Options** and **Continue**, then authenticate if prompted.
+4. Open **Utilities → Startup Security Utility**.
+5. Select the startup disk, choose **Security Policy**, and select
+   **Reduced Security**.
+6. Enable **Allow user management of kernel extensions from identified
+   developers**, then confirm and restart.
+7. Build/install the experimental kext according to its bundled upstream
+   instructions. If macOS requests approval, review it in
+   **System Settings → Privacy & Security** and restart as directed.
+
+**Important:** The maintainer's tested configuration also had **System
+Integrity Protection (SIP) disabled**. Reduced Security and kernel-extension
+approval do **not** automatically disable SIP, and we have not established that
+SIP must be disabled on every supported macOS configuration. Do not turn it
+off automatically as part of setup; investigate any specific code-signing
+or loading errors first. Restore your normal security policy when finished
+with testing.
+
+Apple documentation:
+[Startup security settings on Apple silicon](https://support.apple.com/en-euro/guide/mac-help/mchl768f7291/27/mac/27)
+and [installing a custom kernel extension](https://developer.apple.com/documentation/apple-silicon/installing-a-custom-kernel-extension).
+
 ### 1. verify the kext already installed on your test Mac
 
 ```sh
 kmutil showloaded | grep -i usbgadget
 ```
 
-The original developer built the kext using the Xcode project at:
+The experimental kext is built using the Xcode project at:
 
 ```text
 vendor/macos_usb_gadget_poc/usbgadget/usbgadget.xcodeproj
@@ -127,11 +169,10 @@ the vendored library binary, so the next `make` recompiles them both.
 
 ### 3. test the USB connection before sending code
 
-Use the **upper-left Mac USB-C port** to **either the top or bottom Switch 2 USB-C port** with
+Use **any of the three Mac USB-C ports** to **either the top or bottom Switch 2 USB-C port** with
 a data-capable USB 2.0 USB-C-to-USB-C cable. Both Switch ports work on
-the tested console; only the upper-left Mac port has worked. The connection
-has been confirmed in docked and undocked use, and the working Mac controller
-is **`usb-drd1`**.
+the tested console; all three Mac ports have worked with matching controllers. The connection
+has been confirmed in docked and undocked use, and mac2jb now attempts to select the controller by enumeration unless you override it.
 
 **Important — USB charging direction:** USB host enumeration will not work
 if the Switch 2 is charging from the Mac. If it is, unplug and replug the
@@ -142,14 +183,14 @@ as long as the Switch is not drawing charging power from the Mac.
 Open an *empty, focused* SmileBASIC editor.
 
 ```sh
-bash scripts/test-controllers.sh usb-drd1
+bash scripts/test-usb.sh
 ```
 
-When prompted, type `SEND` and Enter. Check that `hello` appears on the
+When prompted, press Enter. Check that `hello` appears on the
 Switch 2. The script sends text only; it does not press Run. If enumeration
 fails, check whether the Switch is charging from the Mac, then unplug and
 replug the USB-C cable to correct the power direction. Retry the known-good
-Mac port and `usb-drd1` controller before exploring another controller. Other Macs may use a different controller.
+Mac port/controller combination or try automatic selection again. Other Macs may use a different controller.
 
 ### 4. verify indentation using the included small test
 
@@ -158,7 +199,7 @@ Clear the editor completely. The included `indent-test.bas` contains
 `END` statements:
 
 ```sh
-MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-send indent-test.bas --delay-ms 50
+./mac2jb-send indent-test.bas --delay-ms 50
 ```
 
 Inspect the received indentation. After each Enter, SmileBASIC carries
@@ -182,11 +223,11 @@ correct editor window has focus.
 
 ```sh
 shasum -a 256 -c assets/bootstrap.bas.sha256
-MAC2JB_CONTROLLER=usb-drd1 bash scripts/send.sh --dry-run
-MAC2JB_CONTROLLER=usb-drd1 bash scripts/send.sh --delay-ms 50
+bash scripts/send.sh --dry-run
+bash scripts/send.sh --delay-ms 50
 ```
 
-Type `SEND` when prompted. `scripts/send.sh` uses the default
+Press Enter when prompted. `scripts/send.sh` uses the default
 **`mac2jb-send`**, so the indent behavior is identical to Step 4.
 
 `assets/bootstrap.bas` is the trimmed copy sent to SmileBASIC; it omits
@@ -233,10 +274,10 @@ command entry. **In the full game**, load the bootstrap you previously saved.
 be saved. Then run:
 
 ```sh
-MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-commands --delay-ms 50
+./mac2jb-commands --delay-ms 50
 ```
 
-The sender asks for `READY`, then confirms each command before sending it
+The sender pauses for Enter at the start and before each command, then sends it
 followed by Enter:
 
 1. `RUN`
@@ -244,10 +285,10 @@ followed by Enter:
 3. `V=START(39380,192,168,1,234,265585147389886,202646013124119,133644908482058,64977224470249)`
 
 Before the third command it asks you to confirm the expected **Out of memory**
-message by entering `OOM`. The sender cannot observe the Switch screen or
+message before pressing Enter to continue. The sender cannot observe the Switch screen or
 verify the host/exploit stage automatically; it only types approved commands.
-**The maintainer has confirmed successful completion of these commands and the
-subsequent ns2jb steps on the documented physical test setup.** If a USB key
+**The maintainer confirmed successful completion of these commands and the
+subsequent ns2jb steps with manual controller selection on the documented physical setup.** If a USB key
 starts repeating after disconnection, unplug and reconnect the cable.
 
 ## timing and safety notes
@@ -276,7 +317,7 @@ characters.
 | `Error matching IOUSBDeviceInterface (0)` | appeared transiently even during runs that later found the interface; the zero status alone did not establish a fatal failure |
 | `Waiting for USB host enumeration...` | the gadget path was found but the target had not successfully enumerated the HID device; for this test Mac, `usb-drd1` eventually worked |
 | Switch 2 charging from the Mac; enumeration fails | USB host enumeration did not work when the Mac was charging the Switch. Unplug and replug the USB-C cable so the Switch no longer draws power from the Mac; the Switch may instead charge the Mac. This also works if the Mac has another charger connected. |
-| charging works, keyboard doesn't | Charging alone does not prove USB HID enumeration. Check the charging direction, reconnect the cable, and use the tested upper-left Mac port with either Switch USB-C port. |
+| charging works, keyboard doesn't | Charging alone does not prove USB HID enumeration. Check the charging direction, reconnect the cable, and match the Mac USB-C port to its controller, or use automatic selection. |
 | wrong letter case | SmileBASIC mapped unshifted letters to uppercase and shifted letters to lowercase during this test; the sender inverted Shift for letters |
 | text typed, but indentation grows incorrectly | the default `sender.c` now implements inherited-space correction; rebuild with `make clean && make` if using an earlier snapshot |
 | no indentation | an earlier keyword-based algorithm overcorrected; it was abandoned |
@@ -315,7 +356,13 @@ This is a **chronological troubleshooting history**, not a Git commit history or
 25. **Consolidated Builds and Release Packaging.** Both senders now build with `make`; libusbd has an `@rpath` install name; release packaging includes both sender sources; and macOS CI validates compilation and packaging.
 26. **Confirmed Successful End-to-End ns2jb Workflow.** The maintainer successfully completed every stage on the documented M4 MacBook Pro (macOS 26.4.1) and Switch 2 (firmware 23.0.1, SmileBASIC 4.4.9): USB HID input, accurate bootstrap transfer, saving and executing the bootstrap, the interactive `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF` (with the expected Out of memory message), `V=START(...)`, and the remaining ns2jb network-host procedure. This verifies the entire workflow on the tested hardware, beyond the earlier typing-only and dry-run tests. Other configurations remain unverified.
 27. **Documented Full-Game and Demo Workflows.** Confirmed support for both editions of SmileBASIC. The full game can save the bootstrap for later sessions, so only the saved-program loading and post-bootstrap command sequence must be repeated. The demo cannot save the bootstrap, so the complete text-transfer and post-bootstrap procedure must be repeated for every new session.
-28. **Confirmed Both Switch USB-C Ports and USB Power-Direction Requirement.** Further testing showed that both the top and bottom USB-C ports on the Switch 2 work, while the upper-left USB-C port remains the only confirmed working port on the M4 MacBook Pro. USB host enumeration fails when the Switch is charging from the Mac. Unplugging and reconnecting the USB-C cable corrects the power direction on the tested setup, potentially causing the Switch to supply power to the Mac instead. Reconnecting also works when the Mac has separate charging power, provided the Mac is not charging the Switch.
+28. **Confirmed Both Switch USB-C Ports and USB Power-Direction Requirement.** Further testing showed that both the top and bottom USB-C ports on the Switch 2 work, before the other two Mac ports were tested successfully later. USB host enumeration fails when the Switch is charging from the Mac. Unplugging and reconnecting the USB-C cable corrects the power direction on the tested setup, potentially causing the Switch to supply power to the Mac instead. Reconnecting also works when the Mac has separate charging power, provided the Mac is not charging the Switch.
+
+
+29. **Confirmed All Three Mac USB-C Controllers.** Subsequent hardware testing confirmed upper-left = `usb-drd1`, lower-left = `usb-drd0`, and right-side = `usb-drd3` on the tested M4 MacBook Pro (`Mac16,1`). Both Switch 2 USB-C ports remain compatible.
+30. **Added Automatic Controller Selection and Enter-Only Prompts.** Both senders now attempt available controllers in order (`usb-drd0`, `usb-drd1`, `usb-drd3`) with a 4-second enumeration window each, while retaining the `MAC2JB_CONTROLLER` manual override. Text is sent only after successful enumeration. Prompts now require pressing Enter rather than typing `SEND`, `READY`, or `OOM`. The new probing behavior requires another on-device test before release.
+
+31. **Shortened Auto-Selection Timeout and Expanded Manual Controller IDs.** After the maintainer observed USB enumeration completing in about 2 seconds, reduced the automatic probe window from 8 seconds to 4 seconds per controller. Auto mode still tests the three controllers confirmed on the M4 MacBook Pro (`usb-drd0`, `usb-drd1`, `usb-drd3`), while manual `MAC2JB_CONTROLLER` selection now accepts `usb-drd0` through `usb-drd15` for research on other Macs. Added explicit Apple silicon Reduced Security / kernel-extension approval steps to the setup guide; additional controllers and the shorter timeout await validation on physical hardware.
 
 ### lessons from the debugging log
 
@@ -368,7 +415,7 @@ bash make-release-zip.command
 
 The release archive includes both sender source files, test inputs, docs,
 assets and pinned vendored source; it excludes local compiled binaries.
-The macOS GitHub Actions workflow has passed source builds, dry-runs, checksum
+The prior macOS GitHub Actions workflow passed source builds, dry-runs, checksum
 validation, and release packaging. CI cannot itself verify USB operation on actual
 hardware, but the maintainer has separately completed the full process on the
 documented physical test setup.
