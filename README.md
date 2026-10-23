@@ -91,7 +91,7 @@ for each new execution; saving the bootstrap does not make the exploit permanent
 
 ## files and prerequisites
 
-You need an Apple silicon Mac, Xcode Command Line Tools, **full Xcode for building the kext**, and the checked-in vendored source. For later `ns2jb` network-host work, the pinned project's host also needs Node.js 22+ and an appropriate local network. The device/SmileBASIC software versions required for that separate stage must match the vendored upstream `ns2jb` instructions; the original bundled README specified Switch 2 system software `23.0.1` and SmileBASIC `4.4.9`, but those versions were **not independently reconfirmed during these USB keyboard tests**.
+You need an Apple silicon Mac, Xcode Command Line Tools, **full Xcode for building the kext**, and the checked-in vendored source. For later `ns2jb` network-host work, the pinned project's host also needs Node.js 22+ and an appropriate local network. The complete bootstrap transfer, post-bootstrap command sequence, and ns2jb network-host workflow were successfully tested end-to-end on **Nintendo Switch 2 system software `23.0.1` with SmileBASIC `4.4.9`**. Other software versions have not been verified.
 
 From the extracted project folder (containing `Makefile`):
 
@@ -126,13 +126,45 @@ on a dedicated research machine by someone who understands the risk.
    instructions. If macOS requests approval, review it in
    **System Settings → Privacy & Security** and restart as directed.
 
-**Important:** The maintainer's tested configuration also had **System
-Integrity Protection (SIP) disabled**. Reduced Security and kernel-extension
-approval do **not** automatically disable SIP, and we have not established that
-SIP must be disabled on every supported macOS configuration. Do not turn it
-off automatically as part of setup; investigate any specific code-signing
-or loading errors first. Restore your normal security policy when finished
-with testing.
+#### recovery terminal command used on the tested mac
+
+In addition to Reduced Security and kernel-extension approval, the maintainer
+**disabled System Integrity Protection (SIP)** in macOS Recovery during the
+successful M4 test. This is a separate security change, not a side effect of
+selecting Reduced Security.
+
+To reproduce **that exact tested configuration**, while still in macOS Recovery
+(opened using the power-button startup-options steps above), choose
+**Utilities → Terminal** and enter:
+
+```sh
+csrutil disable
+```
+
+Follow the on-screen confirmation and restart the Mac. This command must be
+run in **Recovery Terminal**, not a normal Terminal window in macOS. You can
+check the resulting state after restarting with:
+
+```sh
+csrutil status
+```
+
+**Security warning:** Disabling SIP removes significant system protections.
+The tested setup had SIP disabled, but it has **not** been established that
+SIP must be disabled on every Apple silicon model or macOS version. Only do
+this if you deliberately choose to reproduce the tested research environment
+and understand the security implications. It is separate from allowing
+third-party kernel extensions.
+
+After testing, return to **macOS Recovery → Utilities → Terminal** and restore
+SIP with:
+
+```sh
+csrutil enable
+```
+
+Restart afterward, and restore your normal Startup Security Utility policy
+when you no longer need the experimental kernel extension.
 
 Apple documentation:
 [Startup security settings on Apple silicon](https://support.apple.com/en-euro/guide/mac-help/mchl768f7291/27/mac/27)
