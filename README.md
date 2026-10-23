@@ -372,6 +372,8 @@ A driver **loading** is not the same as a device **enumerating**, and an enumera
 
 ```text
 Makefile                             builds both senders from source
+Launch mac2jb.command                Finder launcher for graphical user interface
+gui/                                 native Cocoa graphical user interface
 sender.c                             tested inherited-indentation HID sender
 commands.c                           interactive post-bootstrap command sender
 indent-test.bas                      short indentation test input

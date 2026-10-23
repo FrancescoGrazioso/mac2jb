@@ -52,6 +52,8 @@ for item in \
     indent-test.bas \
     upstream.lock \
     make-release-zip.command \
+    "Launch mac2jb.command" \
+    gui \
     scripts \
     assets \
     vendor
@@ -65,6 +67,7 @@ done
 # These files may contain pairing tokens,
 # memory captures, and session logs.
 rm -rf "$TMP/mac2jb/vendor/ns2jb/runs"
+rm -rf "$TMP/mac2jb/gui/Mac2jb.app"
 
 # Remove compiled binaries and local artifacts.
 find "$TMP/mac2jb" -type f \( \

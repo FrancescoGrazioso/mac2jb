@@ -11,3 +11,7 @@ xcuserdata/
 
 # Per-run ns2jb session credentials and logs. Never commit.
 vendor/ns2jb/runs/
+
+# Build artifacts
+*.dSYM
+gui/Mac2jb.app/

@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mac2jb</title>
+<style>
+:root {
+  --bg-primary: #18181c;
+  --bg-secondary: #202026;
+  --bg-card: #272730;
+  --bg-card-hover: #2e2e38;
+  --text-main: #f2f2f7;
+  --text-muted: #8e8e93;
+  --accent: #0a84ff;
+  --accent-hover: #0071e3;
+  --accent-subtle: rgba(10, 132, 255, 0.12);
+  --success: #30d158;
+  --warning: #ffd60a;
+  --danger: #ff453a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-primary: #f5f5f7;
+    --bg-secondary: #e8e8ed;
+    --bg-card: #ffffff;
+    --bg-card-hover: #fbfbfd;
+    --text-main: #1d1d1f;
+    --text-muted: #6e6e73;
+    --accent: #0071e3;
+    --accent-hover: #0077ed;
+    --accent-subtle: rgba(0, 113, 227, 0.08);
+    --border: rgba(0, 0, 0, 0.08);
+    --border-subtle: rgba(0, 0, 0, 0.04);
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-main);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+header {
+  height: 48px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  -webkit-app-region: drag;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.2px;
+}
+
+.brand-badge {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(10, 132, 255, 0.2);
+  letter-spacing: 0.5px;
+}
+
+/* Main Layout */
+.container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Sidebar */
+aside {
+  width: 210px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.step-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.step-nav-item.active {
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.step-nav-item.completed {
+  color: var(--text-main);
+}
+
+.step-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(128, 128, 128, 0.16);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.step-nav-item.active .step-indicator {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.step-nav-item.completed .step-indicator {
+  background: rgba(48, 209, 88, 0.2);
+  color: var(--success);
+}
+
+/* Main Content Area */
+main {
+  flex: 1;
+  padding: 28px 36px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-view {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.step-view.active { display: flex; }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  margin-bottom: 2px;
+}
+
+.subtitle {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Cards & Panels */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alert-panel {
+  background: rgba(255, 214, 10, 0.08);
+  border: 1px solid rgba(255, 214, 10, 0.25);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.alert-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.check-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.check-icon.ok {
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--success);
+}
+
+.check-icon.pending {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--text-muted);
+}
+
+.check-icon.fail {
+  background: rgba(255, 69, 58, 0.15);
+  color: var(--danger);
+}
+
+/* Instructions */
+.instruction-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.instruction-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.instruction-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Progress Bar */
+.progress-container {
+  width: 100%;
+  background: var(--border);
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}
+
+/* Status Badges */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-online { background: rgba(48, 209, 88, 0.14); color: var(--success); }
+.status-offline { background: rgba(128, 128, 128, 0.14); color: var(--text-muted); }
+.status-busy { background: var(--accent-subtle); color: var(--accent); }
+
+/* Buttons */
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { background: var(--accent-hover); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover { background: var(--bg-card-hover); }
+
+/* Code Display */
+.code-display {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  color: #e5c07b;
+  border: 1px solid var(--border);
+  user-select: text;
+}
+
+/* Select */
+select {
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  outline: none;
+}
+
+/* Activity Log Drawer */
+.log-drawer {
+  background: #111115;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: height 0.2s ease;
+  height: 120px;
+}
+
+.log-drawer.collapsed { height: 30px; }
+
+.log-header {
+  height: 30px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border);
+}
+
+.log-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-body {
+  flex: 1;
+  padding: 8px 16px;
+  overflow-y: auto;
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: #a0a0b0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* Vector Icons */
+.icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span>mac2jb</span>
+    <span class="brand-badge">SWITCH 2</span>
+  </div>
+  <div id="connectionStatus" class="status-pill status-offline">
+    <span class="status-dot"></span> <span id="statusText">Ready</span>
+  </div>
+</header>
+
+<div class="container">
+  <aside>
+    <div class="step-nav-item active" id="nav-0">
+      <div class="step-indicator">1</div>
+      <span>Welcome</span>
+    </div>
+    <div class="step-nav-item" id="nav-1">
+      <div class="step-indicator">2</div>
+      <span>Prerequisites</span>
+    </div>
+    <div class="step-nav-item" id="nav-2">
+      <div class="step-indicator">3</div>
+      <span>Build</span>
+    </div>
+    <div class="step-nav-item" id="nav-3">
+      <div class="step-indicator">4</div>
+      <span>Bootstrap</span>
+    </div>
+    <div class="step-nav-item" id="nav-4">
+      <div class="step-indicator">5</div>
+      <span>Host Server</span>
+    </div>
+    <div class="step-nav-item" id="nav-5">
+      <div class="step-indicator">6</div>
+      <span>Commands</span>
+    </div>
+    <div class="step-nav-item" id="nav-6">
+      <div class="step-indicator">7</div>
+      <span>Summary</span>
+    </div>
+  </aside>
+
+  <main>
+    <!-- STEP 0: WELCOME -->
+    <div class="step-view active" id="view-0">
+      <h1>Nintendo Switch 2 Jailbreak Assistant</h1>
+      <p class="subtitle">Guided workflow to apply the tethered userland jailbreak via USB HID keyboard emulation.</p>
+      
+      <div class="alert-panel">
+        <div class="alert-title">Important Notice</div>
+        • This exploit is <strong>tethered</strong>: rebooting the console returns it to stock firmware.<br>
+        • Modifying console software carries risks of account or hardware restrictions.<br>
+        • Do not disconnect the cable or power off devices while transfer is in progress.
+      </div>
+
+      <div class="card">
+        <strong style="font-size: 13.5px;">Required items:</strong>
+        <div class="checklist">
+          <div class="check-item"><span class="check-icon ok"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> Nintendo Switch 2 on firmware <strong>23.0.1</strong></div>
+          <div class="check-item"><span class="check-icon ok"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> <strong>SmileBASIC 4</strong> (v4.4.9) installed</div>
+          <div class="check-item"><span class="check-icon ok"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> Apple Silicon Mac (M1, M2, M3, M4)</div>
+          <div class="check-item"><span class="check-icon ok"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> USB-C to USB-C data cable</div>
+          <div class="check-item"><span class="check-icon ok"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span> Wi-Fi connection configured with <strong>90DNS</strong></div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="goToStep(1)">Get Started &rarr;</button>
+      </div>
+    </div>
+
+    <!-- STEP 1: PREFLIGHT -->
+    <div class="step-view" id="view-1">
+      <h1>Prerequisites Verification</h1>
+      <p class="subtitle">Checking that local dependencies, tools, and checksums are intact.</p>
+
+      <div class="card">
+        <div class="checklist" id="preflightList">
+          <div class="check-item" id="chk-mac"><span class="check-icon pending"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></span> Apple Silicon architecture (arm64)</div>
+          <div class="check-item" id="chk-tools"><span class="check-icon pending"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></span> Xcode Command Line Tools</div>
+          <div class="check-item" id="chk-node"><span class="check-icon pending"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></span> Node.js (version 22 or higher)</div>
+          <div class="check-item" id="chk-deps"><span class="check-icon pending"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></span> Bundled offline components (libusbd, ns2jb)</div>
+          <div class="check-item" id="chk-sha"><span class="check-icon pending"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></span> bootstrap.bas SHA-256 verification</div>
+        </div>
+      </div>
+
+      <div id="preflightMessage" style="font-size: 13px; color: var(--text-muted);"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="runPreflight()">
+          <svg class="icon" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Check Again
+        </button>
+        <button class="btn" id="btnPreflightNext" disabled onclick="goToStep(2)">Proceed to Build &rarr;</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: BUILD -->
+    <div class="step-view" id="view-2">
+      <h1>Tool Compilation</h1>
+      <p class="subtitle">Building the native C binaries that manage USB HID keyboard emulation.</p>
+
+      <div class="instruction-box">
+        <div class="instruction-step">
+          <div class="instruction-num">i</div>
+          <div>Compiles <code>mac2jb-send</code> and <code>mac2jb-commands</code> using the system clang compiler.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size: 13.5px; font-weight: 500;">Status:</span>
+          <span id="buildStatusBadge" class="status-pill status-offline"><span class="status-dot"></span> Not started</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btnRunBuild" onclick="runBuild()">Compile Binaries</button>
+        <button class="btn" id="btnBuildNext" disabled onclick="goToStep(3)">Continue &rarr;</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: CONNECT & SEND BOOTSTRAP -->
+    <div class="step-view" id="view-3">
+      <h1>Bootstrap Transfer</h1>
+      <p class="subtitle">Types the bootstrap script directly into SmileBASIC 4 via USB HID keyboard simulation.</p>
+
+      <div class="instruction-box">
+        <div class="instruction-step">
+          <div class="instruction-num">1</div>
+          <div>Connect the USB-C cable between your Mac and the Switch 2.</div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num">2</div>
+          <div><strong>Requirement:</strong> The Switch must not draw charging power from the Mac. If charging, disconnect and reconnect the cable.</div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num">3</div>
+          <div>On the Switch, launch <strong>SmileBASIC 4</strong> and open a fresh, empty <strong>Editor</strong>.</div>
+        </div>
+        <div class="instruction-step">
+          <div class="instruction-num">4</div>
+          <div>Ensure the cursor is positioned at the start of line 1.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="font-size: 13px; font-weight: 500;">USB Controller:</label>
+          <select id="usbControllerSelect">
+            <option value="auto">Automatic Probing (Recommended)</option>
+            <option value="usb-drd1">Upper Left USB-C (drd1)</option>
+            <option value="usb-drd0">Lower Left USB-C (drd0)</option>
+            <option value="usb-drd3">Right Side USB-C (drd3)</option>
+          </select>
+        </div>
+
+        <div style="margin-top: 6px;">
+          <div style="display:flex; justify-content:space-between; font-size: 12px; margin-bottom: 4px;">
+            <span id="sendProgressLabel">Ready</span>
+            <span id="sendPercentLabel">0%</span>
+          </div>
+          <div class="progress-container">
+            <div class="progress-bar" id="sendProgressBar"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btnSendBootstrap" onclick="runSendBootstrap()">Send Bootstrap</button>
+        <button class="btn" id="btnSendNext" disabled onclick="goToStep(4)">Saved on Switch, Continue &rarr;</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: HOST SERVER -->
+    <div class="step-view" id="view-4">
+      <h1>Local Host Server</h1>
+      <p class="subtitle">Starts the background service that receives connection from the Switch 2.</p>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size: 13.5px; font-weight: 500;">Host Service:</span>
+          <span id="hostStatusBadge" class="status-pill status-offline"><span class="status-dot"></span> Inactive</span>
+        </div>
+        <div id="hostDetails" style="font-size: 12.5px; color: var(--text-muted); display: none;">
+          Host process is running and waiting for payload request. Keep this window open.
+        </div>
+      </div>
+
+      <div class="instruction-box">
+        <div class="instruction-step">
+          <div class="instruction-num">i</div>
+          <div>Generates a per-session cryptographic pairing token automatically loaded into the final command.</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btnStartHost" onclick="runStartHost()">Start Host Service</button>
+        <button class="btn" id="btnHostNext" disabled onclick="goToStep(5)">Proceed to Commands &rarr;</button>
+      </div>
+    </div>
+
+    <!-- STEP 5: FINAL COMMANDS -->
+    <div class="step-view" id="view-5">
+      <h1>Execution Commands</h1>
+      <p class="subtitle">Focus the interactive command prompt (bottom line in SmileBASIC 4).</p>
+
+      <!-- Substep 1 -->
+      <div class="card" id="cmdCard1">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Command 1: Run Bootstrap</strong>
+          <span id="cmd1Badge" class="status-pill status-offline"><span class="status-dot"></span> Pending</span>
+        </div>
+        <p style="font-size: 12.5px; color: var(--text-muted);">Runs the loaded bootstrap code in memory.</p>
+        <div class="code-display">RUN</div>
+        <button class="btn" id="btnCmd1" onclick="sendSingleCommand('RUN', 1)">Send RUN</button>
+      </div>
+
+      <!-- Substep 2 -->
+      <div class="card" id="cmdCard2" style="opacity: 0.5;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Command 2: Trigger Memory Exploit</strong>
+          <span id="cmd2Badge" class="status-pill status-offline"><span class="status-dot"></span> Pending</span>
+        </div>
+        <p style="font-size: 12.5px; color: var(--text-muted);">Triggers array integer overflow. The console will report <strong>"Out of memory"</strong>: this indicates success.</p>
+        <div class="code-display">REMOVE NSR,&H60000000,&H3FFFFFFF</div>
+        <button class="btn" id="btnCmd2" disabled onclick="sendSingleCommand('REMOVE NSR,&H60000000,&H3FFFFFFF', 2)">Send REMOVE</button>
+      </div>
+
+      <!-- Substep 3 -->
+      <div class="card" id="cmdCard3" style="opacity: 0.5;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Command 3: Connect to Host</strong>
+          <span id="cmd3Badge" class="status-pill status-offline"><span class="status-dot"></span> Pending</span>
+        </div>
+        <p style="font-size: 12.5px; color: var(--text-muted);">Transmits session token and initiates connection to local host.</p>
+        <div class="code-display" id="startCommandDisplay">V=START(...)</div>
+        <button class="btn" id="btnCmd3" disabled onclick="sendStartCommand()">Send V=START</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="btnCommandsDone" disabled onclick="goToStep(6)">Complete Workflow &rarr;</button>
+      </div>
+    </div>
+
+    <!-- STEP 6: DONE -->
+    <div class="step-view" id="view-6">
+      <h1>Workflow Complete</h1>
+      <p class="subtitle">The exploit chain has completed.</p>
+
+      <div class="card">
+        <strong style="color: var(--success); font-size: 15px;">Target State Active</strong>
+        <p style="font-size: 13px; line-height: 1.5;">Userland process permissions are elevated. The console is ready for homebrew and game modifications.</p>
+      </div>
+
+      <div class="alert-panel">
+        <div class="alert-title">Maintenance Note</div>
+        This exploit is tethered. If the console undergoes a hard reboot, repeat this procedure.
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="goToStep(0)">Return to Start</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Collapsible Log Drawer -->
+<div class="log-drawer collapsed" id="logDrawer">
+  <div class="log-header" onclick="toggleLog()">
+    <span class="log-title">
+      <svg class="icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Activity Log
+    </span>
+    <span style="font-size: 11px; color: var(--text-muted);" id="logToggleLabel">Show</span>
+  </div>
+  <div class="log-body" id="logBody"></div>
+</div>
+
+<script>
+let currentStep = 0;
+
+function postToNative(action, payload) {
+  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mac2jb) {
+    window.webkit.messageHandlers.mac2jb.postMessage({ action: action, payload: payload || {} });
+  } else {
+    console.log("Mock native call:", action, payload);
+  }
+}
+
+function appendLog(line) {
+  const body = document.getElementById("logBody");
+  body.textContent += line + "\n";
+  body.scrollTop = body.scrollHeight;
+}
+
+function toggleLog() {
+  const drawer = document.getElementById("logDrawer");
+  const label = document.getElementById("logToggleLabel");
+  drawer.classList.toggle("collapsed");
+  label.textContent = drawer.classList.contains("collapsed") ? "Show" : "Hide";
+}
+
+function goToStep(step) {
+  document.querySelectorAll(".step-view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".step-nav-item").forEach((n, idx) => {
+    n.classList.remove("active");
+    if (idx < step) n.classList.add("completed");
+    else n.classList.remove("completed");
+  });
+
+  const nextView = document.getElementById(`view-${step}`);
+  const nextNav = document.getElementById(`nav-${step}`);
+  if (nextView) nextView.classList.add("active");
+  if (nextNav) nextNav.classList.add("active");
+  currentStep = step;
+
+  if (step === 1) runPreflight();
+}
+
+function runPreflight() {
+  document.getElementById("preflightMessage").textContent = "Running preflight checks...";
+  document.getElementById("btnPreflightNext").disabled = true;
+  postToNative("preflight");
+}
+
+function runBuild() {
+  document.getElementById("btnRunBuild").disabled = true;
+  const badge = document.getElementById("buildStatusBadge");
+  badge.className = "status-pill status-busy";
+  badge.innerHTML = '<span class="status-dot"></span> Compiling...';
+  postToNative("build");
+}
+
+function runSendBootstrap() {
+  const controller = document.getElementById("usbControllerSelect").value;
+  document.getElementById("btnSendBootstrap").disabled = true;
+  document.getElementById("sendProgressLabel").textContent = "Waiting for USB host enumeration...";
+  postToNative("sendBootstrap", { controller: controller });
+}
+
+function runStartHost() {
+  document.getElementById("btnStartHost").disabled = true;
+  const badge = document.getElementById("hostStatusBadge");
+  badge.className = "status-pill status-busy";
+  badge.innerHTML = '<span class="status-dot"></span> Starting...';
+  postToNative("startHost");
+}
+
+function sendSingleCommand(cmd, stepNum) {
+  const btn = document.getElementById(`btnCmd${stepNum}`);
+  btn.disabled = true;
+  btn.textContent = "Sending...";
+  postToNative("sendCommand", { command: cmd, step: stepNum });
+}
+
+function sendStartCommand() {
+  const btn = document.getElementById("btnCmd3");
+  btn.disabled = true;
+  btn.textContent = "Sending...";
+  postToNative("sendStartCommand");
+}
+
+/* Callbacks from Native Controller */
+window.onNativeLog = function(text) {
+  appendLog(text);
+};
+
+window.onPreflightResult = function(success, details) {
+  const setCheck = (id, ok) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const icon = el.querySelector(".check-icon");
+    if (ok) {
+      icon.className = "check-icon ok";
+      icon.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else {
+      icon.className = "check-icon fail";
+      icon.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    }
+  };
+
+  setCheck("chk-mac", details.isArm64);
+  setCheck("chk-tools", details.hasXcode);
+  setCheck("chk-node", details.hasNode);
+  setCheck("chk-deps", details.hasDeps);
+  setCheck("chk-sha", details.hasValidSha);
+
+  const msg = document.getElementById("preflightMessage");
+  if (success) {
+    msg.innerHTML = "<span style='color:var(--success); font-weight:500;'>All preflight checks passed.</span>";
+    document.getElementById("btnPreflightNext").disabled = false;
+  } else {
+    msg.innerHTML = "<span style='color:var(--danger); font-weight:500;'>Prerequisite check failed. Review activity log.</span>";
+    document.getElementById("btnPreflightNext").disabled = true;
+  }
+};
+
+window.onBuildResult = function(success) {
+  const badge = document.getElementById("buildStatusBadge");
+  document.getElementById("btnRunBuild").disabled = false;
+  if (success) {
+    badge.className = "status-pill status-online";
+    badge.innerHTML = '<span class="status-dot"></span> Built successfully';
+    document.getElementById("btnBuildNext").disabled = false;
+  } else {
+    badge.className = "status-pill status-offline";
+    badge.style.color = "var(--danger)";
+    badge.innerHTML = '<span class="status-dot"></span> Build failed';
+  }
+};
+
+window.onSendProgress = function(currentLine, totalLines) {
+  const pct = Math.min(100, Math.round((currentLine / totalLines) * 100));
+  document.getElementById("sendProgressBar").style.width = pct + "%";
+  document.getElementById("sendPercentLabel").textContent = pct + "%";
+  document.getElementById("sendProgressLabel").textContent = `Typed line ${currentLine} of ${totalLines}...`;
+};
+
+window.onSendResult = function(success) {
+  document.getElementById("btnSendBootstrap").disabled = false;
+  if (success) {
+    document.getElementById("sendProgressLabel").textContent = "Bootstrap transfer finished. Save file on console.";
+    document.getElementById("sendProgressBar").style.width = "100%";
+    document.getElementById("sendPercentLabel").textContent = "100%";
+    document.getElementById("btnSendNext").disabled = false;
+  } else {
+    document.getElementById("sendProgressLabel").textContent = "Transfer halted. Verify cable direction.";
+  }
+};
+
+window.onHostStarted = function(success, startCommand) {
+  const badge = document.getElementById("hostStatusBadge");
+  document.getElementById("btnStartHost").disabled = false;
+  if (success) {
+    badge.className = "status-pill status-online";
+    badge.innerHTML = '<span class="status-dot"></span> Active';
+    document.getElementById("hostDetails").style.display = "block";
+    document.getElementById("btnHostNext").disabled = false;
+    if (startCommand) {
+      document.getElementById("startCommandDisplay").textContent = startCommand;
+    }
+  } else {
+    badge.className = "status-pill status-offline";
+    badge.innerHTML = '<span class="status-dot"></span> Failed to start';
+  }
+};
+
+window.onCommandResult = function(stepNum, success) {
+  const badge = document.getElementById(`cmd${stepNum}Badge`);
+  const btn = document.getElementById(`btnCmd${stepNum}`);
+  btn.disabled = false;
+  btn.textContent = "Send Again";
+
+  if (success) {
+    badge.className = "status-pill status-online";
+    badge.innerHTML = '<span class="status-dot"></span> Sent';
+
+    if (stepNum === 1) {
+      document.getElementById("cmdCard2").style.opacity = "1";
+      document.getElementById("btnCmd2").disabled = false;
+    } else if (stepNum === 2) {
+      document.getElementById("cmdCard3").style.opacity = "1";
+      document.getElementById("btnCmd3").disabled = false;
+    } else if (stepNum === 3) {
+      document.getElementById("btnCommandsDone").disabled = false;
+    }
+  } else {
+    badge.className = "status-pill status-offline";
+    badge.style.color = "var(--danger)";
+    badge.innerHTML = '<span class="status-dot"></span> Error';
+  }
+};
+</script>
+</body>
+</html>
