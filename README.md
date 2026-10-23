@@ -7,7 +7,7 @@ mac2jb combines a USB HID text sender with vendored source from
 [macos_usb_gadget_poc](https://github.com/shinyquagsire23/macos_usb_gadget_poc),
 and [ns2jb](https://gitlab.com/pepsipu/ns2jb).
 
-**End-to-end status:** The maintainer has confirmed successful completion of the entire workflow on the documented M4 MacBook Pro and Switch 2: USB HID connection, complete SmileBASIC bootstrap transfer, saving and running the bootstrap, interactive `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and `V=START(...)` commands, and the remaining ns2jb host steps. This is a verified physical-hardware result for one tested configuration; other hardware and firmware combinations have not been verified.
+**End-to-end status:** The maintainer has confirmed successful completion of the entire workflow on the documented M4 MacBook Pro and Switch 2: USB HID connection, complete SmileBASIC bootstrap transfer, saving and running the bootstrap, interactive `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF`, and `V=START(...)` commands, and the remaining ns2jb host steps. Both the full game and demo can be used; the demo requires retransferring the bootstrap every session because it cannot save it. This is a verified physical-hardware result for one tested configuration; other hardware and firmware combinations have not been verified.
 
 **Release layout:** the user-tested inherited-indentation implementation is now
 `sender.c` and the default `mac2jb-send` executable. `make` and
@@ -25,13 +25,14 @@ These are **results from one user's physical hardware testing**, not blanket com
 | macOS | `26.4.1` |
 | firmware observed | system firmware `18000.101.7`, OS loader `18000.101.7` |
 | mac ports available | three USB-C ports: two left, one right |
-| mac port used | **upper-left USB-C port** (topmost on the left side) |
-| switch 2 connection | **top USB-C port on the Switch 2** |
+| mac port used | **upper-left USB-C port only** on the tested Mac; other Mac ports have not worked |
+| switch 2 connection | **top or bottom USB-C port on the Switch 2**; both confirmed working |
 | switch 2 firmware | 23.0.1 |
 | smilebasic version | 4.4.9 |
 | switch 2 mode | **docked and undocked**, both consistently working with the tested build |
 | cable | USB 2.0 **data-capable USB-C to USB-C** cable |
 | selected gadget controller | **`usb-drd1`** |
+| USB power direction | Switch 2 **must not be charging from the Mac** for USB host enumeration to work; reconnect the cable to correct the power direction |
 | gadget driver | `gay.bowser.usbgadget` / `usbgadget.kext`, version `1.01` observed loaded |
 | keyboard smoke test | `hello` appeared inside SmileBASIC |
 | capitalization | tested corrected inverse Shift handling for letters |
@@ -43,7 +44,31 @@ These are **results from one user's physical hardware testing**, not blanket com
 
 The first successful USB keyboard test was docked. The next undocked test also succeeded, but several early subsequent attempts failed to enumerate in either mode. In the next build, the tester reported reliable operation **both docked and undocked**. The cause of the initial intermittent behavior was not isolated; it does not characterize the current verified build.
 
+More recent testing confirmed that **either USB-C port on the Switch 2 works**, while the **upper-left Mac USB-C port remains the only working Mac port**. USB host enumeration also requires that the Switch 2 **not draw charging power from the Mac**. If the Switch is charging from the Mac, disconnect and reconnect the USB-C cable; on the tested setup this corrects the power direction and allows enumeration. The Switch may supply power to the Mac instead. This procedure also works when the Mac is already charging separately, as long as the Mac is not supplying charging power to the Switch.
+
 The physical ports are **not** universally mapped to `usb-drd0`, `usb-drd1`, and `usb-drd3` on all Apple silicon Macs. `usb-drd1` is the *empirically working choice for the test machine*, not a universal default.
+
+## SmileBASIC full game vs. demo
+
+mac2jb works with **both the full version and the demo of SmileBASIC** on the
+verified Switch 2 setup. The important difference is whether you can **save
+the transferred bootstrap** for future sessions:
+
+| SmileBASIC edition | Bootstrap storage | What to do each time you want to run the exploit |
+| --- | --- | --- |
+| **Full game** | Can save the bootstrap | Transfer and save the bootstrap once. On later sessions, load the saved program, start the ns2jb host, and run **only the post-bootstrap command sender** (`mac2jb-commands`) for the SmileBASIC input stage. |
+| **Demo** | Cannot save the bootstrap | Each session, use **the full mac2jb process**: resend the bootstrap with `mac2jb-send`, then start the ns2jb host and run `mac2jb-commands`. |
+
+**Full game:** You do **not** need to resend the bootstrap each time, as long as
+the saved program remains available and compatible with your setup. Load it
+before sending the post-bootstrap commands.
+
+**Demo:** Because the bootstrap cannot be saved, it must be transferred again
+whenever you want to repeat the process. Do not skip Step 5 when starting a new
+session in the demo.
+
+Both editions still require the relevant ns2jb host and post-bootstrap stages
+for each new execution; saving the bootstrap does not make the exploit permanent.
 
 ## before you begin
 
@@ -102,9 +127,18 @@ the vendored library binary, so the next `make` recompiles them both.
 
 ### 3. test the USB connection before sending code
 
-Use the **upper-left Mac USB-C port** to the **top Switch 2 USB-C port** with
-a data-capable USB 2.0 USB-C-to-USB-C cable. The test system had its
-Switch 2 **docked** and the Mac's working controller was **`usb-drd1`**.
+Use the **upper-left Mac USB-C port** to **either the top or bottom Switch 2 USB-C port** with
+a data-capable USB 2.0 USB-C-to-USB-C cable. Both Switch ports work on
+the tested console; only the upper-left Mac port has worked. The connection
+has been confirmed in docked and undocked use, and the working Mac controller
+is **`usb-drd1`**.
+
+**Important — USB charging direction:** USB host enumeration will not work
+if the Switch 2 is charging from the Mac. If it is, unplug and replug the
+USB-C cable. On the tested hardware, reconnecting reverses/corrects the power
+direction: the Switch may charge the Mac rather than the Mac charging the
+Switch. This also works if the Mac is already connected to a separate charger,
+as long as the Switch is not drawing charging power from the Mac.
 Open an *empty, focused* SmileBASIC editor.
 
 ```sh
@@ -113,8 +147,9 @@ bash scripts/test-controllers.sh usb-drd1
 
 When prompted, type `SEND` and Enter. Check that `hello` appears on the
 Switch 2. The script sends text only; it does not press Run. If enumeration
-fails, reconnect the cable and retry the known-good setup before exploring
-another controller. Other Macs may use a different controller.
+fails, check whether the Switch is charging from the Mac, then unplug and
+replug the USB-C cable to correct the power direction. Retry the known-good
+Mac port and `usb-drd1` controller before exploring another controller. Other Macs may use a different controller.
 
 ### 4. verify indentation using the included small test
 
@@ -136,6 +171,11 @@ Expected leading indentation counts for the sample's eight lines:
 `0, 1, 1, 2, 1, 1, 0, 0` spaces. These are ordinary single spaces.
 
 ### 5. dry-run, then send the full bootstrap
+
+**Demo users:** Repeat this bootstrap transfer every time you start a new
+exploit session; the demo cannot save the program. **Full-game users:** Once
+you have successfully transferred and saved the bootstrap, skip this transfer
+on later sessions and load the saved program instead.
 
 Before sending, make sure the receiving editor is empty and the
 correct editor window has focus.
@@ -187,8 +227,10 @@ No extra `commands.mk` or manual `install_name_tool` commands are required.
 The vendored libusbd build sets its install name to `@rpath/libusbd.dylib`,
 and both executables use a bundled, executable-relative runtime search path.
 
-Once the host is initialized, open a fresh SmileBASIC session, load the saved
-bootstrap and focus the command entry. Then run:
+Once the host is initialized, open a fresh SmileBASIC session and focus the
+command entry. **In the full game**, load the bootstrap you previously saved.
+**In the demo**, first repeat Step 5 to transfer the bootstrap because it cannot
+be saved. Then run:
 
 ```sh
 MAC2JB_CONTROLLER=usb-drd1 ./mac2jb-commands --delay-ms 50
@@ -233,7 +275,8 @@ characters.
 | `Failed to find gay_bowser_usbgadget` | upstream `libusbd` selected only hardcoded `usb-drd2`, which was **absent** from the M4 test Mac; discovered services were `usb-drd0`, `usb-drd1`, `usb-drd3` |
 | `Error matching IOUSBDeviceInterface (0)` | appeared transiently even during runs that later found the interface; the zero status alone did not establish a fatal failure |
 | `Waiting for USB host enumeration...` | the gadget path was found but the target had not successfully enumerated the HID device; for this test Mac, `usb-drd1` eventually worked |
-| charging works, keyboard doesn't | USB power role is not proof of USB data-role configuration |
+| Switch 2 charging from the Mac; enumeration fails | USB host enumeration did not work when the Mac was charging the Switch. Unplug and replug the USB-C cable so the Switch no longer draws power from the Mac; the Switch may instead charge the Mac. This also works if the Mac has another charger connected. |
+| charging works, keyboard doesn't | Charging alone does not prove USB HID enumeration. Check the charging direction, reconnect the cable, and use the tested upper-left Mac port with either Switch USB-C port. |
 | wrong letter case | SmileBASIC mapped unshifted letters to uppercase and shifted letters to lowercase during this test; the sender inverted Shift for letters |
 | text typed, but indentation grows incorrectly | the default `sender.c` now implements inherited-space correction; rebuild with `make clean && make` if using an earlier snapshot |
 | no indentation | an earlier keyword-based algorithm overcorrected; it was abandoned |
@@ -271,6 +314,8 @@ This is a **chronological troubleshooting history**, not a Git commit history or
 24. **Permanent USB Controller Selection Fix.** Updated both libusbd service lookups to use `MAC2JB_CONTROLLER` with `usb-drd1` as the default on the tested M4, instead of hardcoding `usb-drd2`.
 25. **Consolidated Builds and Release Packaging.** Both senders now build with `make`; libusbd has an `@rpath` install name; release packaging includes both sender sources; and macOS CI validates compilation and packaging.
 26. **Confirmed Successful End-to-End ns2jb Workflow.** The maintainer successfully completed every stage on the documented M4 MacBook Pro (macOS 26.4.1) and Switch 2 (firmware 23.0.1, SmileBASIC 4.4.9): USB HID input, accurate bootstrap transfer, saving and executing the bootstrap, the interactive `RUN`, `REMOVE NSR,&H60000000,&H3FFFFFFF` (with the expected Out of memory message), `V=START(...)`, and the remaining ns2jb network-host procedure. This verifies the entire workflow on the tested hardware, beyond the earlier typing-only and dry-run tests. Other configurations remain unverified.
+27. **Documented Full-Game and Demo Workflows.** Confirmed support for both editions of SmileBASIC. The full game can save the bootstrap for later sessions, so only the saved-program loading and post-bootstrap command sequence must be repeated. The demo cannot save the bootstrap, so the complete text-transfer and post-bootstrap procedure must be repeated for every new session.
+28. **Confirmed Both Switch USB-C Ports and USB Power-Direction Requirement.** Further testing showed that both the top and bottom USB-C ports on the Switch 2 work, while the upper-left USB-C port remains the only confirmed working port on the M4 MacBook Pro. USB host enumeration fails when the Switch is charging from the Mac. Unplugging and reconnecting the USB-C cable corrects the power direction on the tested setup, potentially causing the Switch to supply power to the Mac instead. Reconnecting also works when the Mac has separate charging power, provided the Mac is not charging the Switch.
 
 ### lessons from the debugging log
 
